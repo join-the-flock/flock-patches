@@ -64,7 +64,8 @@ index 0000000000..45f2372e2a
 +          cd dest
 +          PATCH="${{ steps.patch.outputs.patch_name }}"
 +          cp "../${PATCH}" "${PATCHES_DIR}/${PATCH}"
-+          echo "\n${PATCH}" >> "${PATCHES_DIR}/.patches"
++          echo "" >> "${PATCHES_DIR}/.patches"
++          echo -n "${PATCH}" >> "${PATCHES_DIR}/.patches"
 +          git add "${PATCHES_DIR}/${PATCH}" "${PATCHES_DIR}/.patches"
 +
 +      # ── 4. Commit & push ──────────────────────────────────────────────────────
