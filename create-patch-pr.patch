@@ -28,8 +28,8 @@ index 0000000000..45f2372e2a
 +      pull-requests: write    # to open the PR in destination repo
 +
 +    env:
-+      DEST_REPO: ${{ vars.PATCH_REPO }}           # <── change
-+      PATCHES_DIR: patches                       # folder managed by git-import-patches
++      DEST_REPO: ${{ vars.PATCH_REPO }}
++      PATCHES_DIR: . # folder managed by git-import-patches
 +      BRANCH_NAME: add-patch-pr-${{ github.event.pull_request.number }}
 +      GH_TOKEN: ${{ secrets.REPO_WORKFLOW_PAT }}   # PAT with repo scope on DEST_REPO
 +
