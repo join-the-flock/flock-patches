@@ -1,0 +1,605 @@
+From 041d82a415dced922ea2e5601e33fcf1e37521f6 Mon Sep 17 00:00:00 2001
+From: join-the-flock <join-the-flock@users.noreply.github.com>
+Date: Mon, 14 Jul 2025 01:04:40 +0000
+Subject: [PATCH 1/7] save engine version
+
+---
+ bin/internal/engine.version | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 bin/internal/engine.version
+
+diff --git a/bin/internal/engine.version b/bin/internal/engine.version
+new file mode 100644
+index 00000000000..594c74ed112
+--- /dev/null
++++ b/bin/internal/engine.version
+@@ -0,0 +1 @@
++63f471185f71707d2e2c3c5eaf84280a8d87dd7e
+
+From 1f656d76489e96d0ad7cbf732668d8cb2ef37921 Mon Sep 17 00:00:00 2001
+From: Matt Carroll <matthew-carroll@users.noreply.github.com>
+Date: Sun, 3 Nov 2024 14:49:01 -0800
+Subject: [PATCH 2/7] Added gclient files to gitignore to support Flock and
+ other Flutter forks.
+
+Patch-Dir: /home/runner/work/nest/nest/patches
+Patch-Filename: added_gclient_files_to_gitignore_to_support_flock_and_other_flutter.patch
+---
+ .gitignore | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/.gitignore b/.gitignore
+index eb9f8e5beb6..54a75afbdc2 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,3 +1,8 @@
++# Injected by Flock to support custom forks
++.gclient
++.gclient_entries
++.gclient_previous_sync_commits
++
+ # Do not remove or rename entries in this file, only add new ones
+ # See https://github.com/flutter/flutter/issues/128635 for more context.
+ 
+
+From 56e862e8428d4b8e16e8a71e865f09243e1855d5 Mon Sep 17 00:00:00 2001
+From: Jesse Ezell <jezell@users.noreply.github.com>
+Date: Thu, 27 Mar 2025 14:49:01 -0800
+Subject: [PATCH 3/7] Add engine build ci infra
+
+Patch-Dir: /home/runner/work/nest/nest/patches
+Patch-Filename: add_slim_gclients.patch
+---
+ engine/scripts/slim-linux-android.gclient     | 23 ++++++++++++++++++
+ engine/scripts/slim-linux-desktop.gclient     | 23 ++++++++++++++++++
+ engine/scripts/slim-linux-web.gclient         | 24 +++++++++++++++++++
+ engine/scripts/slim-mac.gclient               | 23 ++++++++++++++++++
+ engine/scripts/slim-windows.gclient           | 22 +++++++++++++++++
+ .../tools/engine_tool/lib/src/build_plan.dart | 19 +++++++++++++++
+ .../engine_tool/lib/src/build_utils.dart      |  3 ++-
+ .../lib/src/commands/build_command.dart       |  1 +
+ .../lib/src/build_config.dart                 | 17 +++++--------
+ .../lib/src/build_config_runner.dart          |  5 +++-
+ 10 files changed, 147 insertions(+), 13 deletions(-)
+ create mode 100644 engine/scripts/slim-linux-android.gclient
+ create mode 100644 engine/scripts/slim-linux-desktop.gclient
+ create mode 100644 engine/scripts/slim-linux-web.gclient
+ create mode 100644 engine/scripts/slim-mac.gclient
+ create mode 100644 engine/scripts/slim-windows.gclient
+
+diff --git a/engine/scripts/slim-linux-android.gclient b/engine/scripts/slim-linux-android.gclient
+new file mode 100644
+index 00000000000..ef6c08d0282
+--- /dev/null
++++ b/engine/scripts/slim-linux-android.gclient
+@@ -0,0 +1,23 @@
++# Copy this file to the root of your flutter checkout to bootstrap gclient
++# or just run gclient sync in an empty directory with this file.
++solutions = [
++  {
++    "custom_deps": {},
++    "deps_file": "DEPS",
++    "managed": False,
++    "name": ".",
++    "safesync_url": "",
++
++    # If you are using SSH to connect to GitHub, change the URL to:
++    # git@github.com:flutter/flutter.git
++    "url": "https://github.com/flutter/flutter.git",
++
++
++    "custom_vars": {
++        "download_linux_deps": False,
++        "download_android_deps": True,
++        "download_esbuild": False,
++        "download_fuchsia_deps": False,
++    }
++  },
++]
+\ No newline at end of file
+diff --git a/engine/scripts/slim-linux-desktop.gclient b/engine/scripts/slim-linux-desktop.gclient
+new file mode 100644
+index 00000000000..b7d27e26fb7
+--- /dev/null
++++ b/engine/scripts/slim-linux-desktop.gclient
+@@ -0,0 +1,23 @@
++# Copy this file to the root of your flutter checkout to bootstrap gclient
++# or just run gclient sync in an empty directory with this file.
++solutions = [
++  {
++    "custom_deps": {},
++    "deps_file": "DEPS",
++    "managed": False,
++    "name": ".",
++    "safesync_url": "",
++
++    # If you are using SSH to connect to GitHub, change the URL to:
++    # git@github.com:flutter/flutter.git
++    "url": "https://github.com/flutter/flutter.git",
++
++
++    "custom_vars": {
++        "download_linux_deps": True,
++        "download_android_deps": False,
++        "download_esbuild": False,
++        "download_fuchsia_deps": False,
++    }
++  },
++]
+\ No newline at end of file
+diff --git a/engine/scripts/slim-linux-web.gclient b/engine/scripts/slim-linux-web.gclient
+new file mode 100644
+index 00000000000..84524ab8175
+--- /dev/null
++++ b/engine/scripts/slim-linux-web.gclient
+@@ -0,0 +1,24 @@
++# Copy this file to the root of your flutter checkout to bootstrap gclient
++# or just run gclient sync in an empty directory with this file.
++solutions = [
++  {
++    "custom_deps": {},
++    "deps_file": "DEPS",
++    "managed": False,
++    "name": ".",
++    "safesync_url": "",
++
++    # If you are using SSH to connect to GitHub, change the URL to:
++    # git@github.com:flutter/flutter.git
++    "url": "https://github.com/flutter/flutter.git",
++
++
++    "custom_vars": {
++        "download_linux_deps": True,
++        "download_android_deps": False,
++        "download_esbuild": True,
++        "download_fuchsia_deps": False,
++        "download_emsdk": True,
++    }
++  },
++]
+\ No newline at end of file
+diff --git a/engine/scripts/slim-mac.gclient b/engine/scripts/slim-mac.gclient
+new file mode 100644
+index 00000000000..38be3fde028
+--- /dev/null
++++ b/engine/scripts/slim-mac.gclient
+@@ -0,0 +1,23 @@
++# Copy this file to the root of your flutter checkout to bootstrap gclient
++# or just run gclient sync in an empty directory with this file.
++solutions = [
++  {
++    "custom_deps": {},
++    "deps_file": "DEPS",
++    "managed": False,
++    "name": ".",
++    "safesync_url": "",
++
++    # If you are using SSH to connect to GitHub, change the URL to:
++    # git@github.com:flutter/flutter.git
++    "url": "https://github.com/flutter/flutter.git",
++
++
++    "custom_vars": {
++        "download_linux_deps": False,
++        "download_android_deps": False,
++        "download_esbuild": False,
++        "download_fuchsia_deps": False,
++    }
++  },
++]
+\ No newline at end of file
+diff --git a/engine/scripts/slim-windows.gclient b/engine/scripts/slim-windows.gclient
+new file mode 100644
+index 00000000000..581802c425f
+--- /dev/null
++++ b/engine/scripts/slim-windows.gclient
+@@ -0,0 +1,22 @@
++# Copy this file to the root of your flutter checkout to bootstrap gclient
++# or just run gclient sync in an empty directory with this file.
++solutions = [
++  {
++    "custom_deps": {},
++    "deps_file": "DEPS",
++    "managed": False,
++    "name": ".",
++    "safesync_url": "",
++
++    # If you are using SSH to connect to GitHub, change the URL to:
++    # git@github.com:flutter/flutter.git
++    "url": "https://github.com/flutter/flutter.git",
++
++
++    "custom_vars": {
++        "download_android_deps": False,
++        "download_esbuild": False,
++        "download_fuchsia_deps": False,
++    }
++  },
++]
+\ No newline at end of file
+diff --git a/engine/src/flutter/tools/engine_tool/lib/src/build_plan.dart b/engine/src/flutter/tools/engine_tool/lib/src/build_plan.dart
+index a4952e8d634..e8d63fd51c3 100644
+--- a/engine/src/flutter/tools/engine_tool/lib/src/build_plan.dart
++++ b/engine/src/flutter/tools/engine_tool/lib/src/build_plan.dart
+@@ -16,6 +16,7 @@ const _flagConfig = 'config';
+ const _flagConcurrency = 'concurrency';
+ const _flagStrategy = 'build-strategy';
+ const _flagRbe = 'rbe';
++const _flagRunTests = 'run-tests';
+ const _flagLto = 'lto';
+ const _flagExtraGnArgs = 'gn-args';
+ 
+@@ -50,6 +51,7 @@ final class BuildPlan {
+     return BuildPlan._(
+       build: build,
+       strategy: BuildStrategy.values.byName(args.option(_flagStrategy)!),
++      runTests: args.flag(_flagRunTests),
+       useRbe: () {
+         final useRbe = args.flag(_flagRbe);
+         if (useRbe && !environment.hasRbeConfigInTree()) {
+@@ -84,6 +86,7 @@ final class BuildPlan {
+   BuildPlan._({
+     required this.build,
+     required this.strategy,
++    required this.runTests,
+     required this.useRbe,
+     required this.useLto,
+     required this.concurrency,
+@@ -201,6 +204,19 @@ final class BuildPlan {
+       hide: !environment.verbose,
+     );
+ 
++    // Add --run-tests.
++    parser.addFlag(
++      _flagRunTests,
++      defaultsTo: false,
++      help: () {
++        var runTestsHelp = 'Run tests (tests will not run by default).';
++        if (environment.verbose) {
++          runTestsHelp += '\n\n$runTestsHelp';
++        }
++        return runTestsHelp;
++      }(),
++    );
++
+     // Add --rbe.
+     final hasRbeConfigInTree = environment.hasRbeConfigInTree();
+     parser.addFlag(
+@@ -244,6 +260,9 @@ final class BuildPlan {
+     return builds;
+   }
+ 
++  /// Whether to run tests
++  final bool runTests;
++
+   /// The build configuration to use.
+   final Build build;
+ 
+diff --git a/engine/src/flutter/tools/engine_tool/lib/src/build_utils.dart b/engine/src/flutter/tools/engine_tool/lib/src/build_utils.dart
+index f58160fcbea..3948c42b585 100644
+--- a/engine/src/flutter/tools/engine_tool/lib/src/build_utils.dart
++++ b/engine/src/flutter/tools/engine_tool/lib/src/build_utils.dart
+@@ -80,6 +80,7 @@ Future<int> runBuild(
+   Environment environment,
+   Build build, {
+   required bool enableRbe,
++  bool runTests = false,
+   List<String> extraGnArgs = const <String>[],
+   List<Label> targets = const <Label>[],
+   int concurrency = 0,
+@@ -97,7 +98,7 @@ Future<int> runBuild(
+     rbeConfig: rbeConfig,
+     concurrency: concurrency,
+     extraGnArgs: gnArgs,
+-    runTests: false,
++    runTests: runTests,
+     extraNinjaArgs: <String>[
+       ...targets.map((Label label) => label.toNinjaLabel()),
+       // If the environment is verbose, pass the verbose flag to ninja.
+diff --git a/engine/src/flutter/tools/engine_tool/lib/src/commands/build_command.dart b/engine/src/flutter/tools/engine_tool/lib/src/commands/build_command.dart
+index ac8df2658cd..39578291c52 100644
+--- a/engine/src/flutter/tools/engine_tool/lib/src/commands/build_command.dart
++++ b/engine/src/flutter/tools/engine_tool/lib/src/commands/build_command.dart
+@@ -76,6 +76,7 @@ et build //flutter/fml:fml_benchmarks  # Build a specific target in `//flutter/f
+       concurrency: plan.concurrency ?? 0,
+       extraGnArgs: plan.toGnArgs(),
+       targets: allTargets.toList(),
++      runTests: plan.runTests,
+       enableRbe: plan.useRbe,
+       rbeConfig: plan.toRbeConfig(),
+     );
+diff --git a/engine/src/flutter/tools/pkg/engine_build_configs/lib/src/build_config.dart b/engine/src/flutter/tools/pkg/engine_build_configs/lib/src/build_config.dart
+index 8d564c04980..e94cd129e4d 100644
+--- a/engine/src/flutter/tools/pkg/engine_build_configs/lib/src/build_config.dart
++++ b/engine/src/flutter/tools/pkg/engine_build_configs/lib/src/build_config.dart
+@@ -223,7 +223,6 @@ final class Build extends BuildConfigBase {
+     }
+ 
+     if (name == null ||
+-        description == null ||
+         gn == null ||
+         ninja == null ||
+         archives == null ||
+@@ -235,7 +234,7 @@ final class Build extends BuildConfigBase {
+     }
+     return Build._(
+       name,
+-      description,
++      description ?? "",
+       gn,
+       ninja,
+       tests,
+@@ -373,14 +372,10 @@ final class BuildTest extends BuildConfigBase {
+     final String? script = stringOfJson(map, 'script', errors);
+     final List<String>? parameters = stringListOfJson(map, 'parameters', errors);
+     final List<String>? contexts = stringListOfJson(map, 'contexts', errors);
+-    if (name == null ||
+-        language == null ||
+-        script == null ||
+-        parameters == null ||
+-        contexts == null) {
++    if (name == null || script == null || parameters == null || contexts == null) {
+       return BuildTest._invalid(errors);
+     }
+-    return BuildTest._(name, language, script, parameters, contexts);
++    return BuildTest._(name, language ?? "", script, parameters, contexts);
+   }
+ 
+   BuildTest._(this.name, this.language, this.script, this.parameters, this.contexts) : super(null);
+@@ -435,10 +430,10 @@ final class BuildTask extends BuildConfigBase {
+     final String? language = stringOfJson(map, 'language', errors);
+     final List<String>? scripts = stringListOfJson(map, 'scripts', errors);
+     final List<String>? parameters = stringListOfJson(map, 'parameters', errors);
+-    if (name == null || language == null || scripts == null || parameters == null) {
++    if (name == null || scripts == null || parameters == null) {
+       return BuildTask._invalid(errors);
+     }
+-    return BuildTask._(name, language, scripts, parameters);
++    return BuildTask._(name, language ?? "", scripts, parameters);
+   }
+ 
+   BuildTask._invalid(super.errors)
+@@ -788,7 +783,7 @@ List<String>? stringListOfJson(Map<String, Object?> map, String field, List<Stri
+ 
+ String? stringOfJson(Map<String, Object?> map, String field, List<String> errors) {
+   if (map[field] == null) {
+-    return '<undef>';
++    return null;
+   }
+   if (map[field]! is! String) {
+     appendTypeError(map, field, 'string', errors);
+diff --git a/engine/src/flutter/tools/pkg/engine_build_configs/lib/src/build_config_runner.dart b/engine/src/flutter/tools/pkg/engine_build_configs/lib/src/build_config_runner.dart
+index b021fa115d3..def61d639c1 100644
+--- a/engine/src/flutter/tools/pkg/engine_build_configs/lib/src/build_config_runner.dart
++++ b/engine/src/flutter/tools/pkg/engine_build_configs/lib/src/build_config_runner.dart
+@@ -575,6 +575,9 @@ final class BuildRunner extends Runner {
+   }
+ 
+   Future<bool> _runNinja(RunnerEventHandler eventHandler) async {
++    if (build.ninja.config.isEmpty) {
++      return true;
++    }
+     if (_isRbe) {
+       if (!await _bootstrapRbe(eventHandler)) {
+         return false;
+@@ -807,7 +810,7 @@ final class BuildTestRunner extends Runner {
+ 
+   @override
+   Future<bool> run(RunnerEventHandler eventHandler) async {
+-    final String interpreter = _interpreter(test.language);
++    final String interpreter = test.language != null ? _interpreter(test.language!) : "";
+     final List<String> command = <String>[
+       if (interpreter.isNotEmpty) interpreter,
+       test.script,
+
+From b963887adc53191004665decf10d9fcb1dd8f05d Mon Sep 17 00:00:00 2001
+From: Victor Eronmosele <victoreronmosele@gmail.com>
+Date: Sun, 2 Mar 2025 20:23:33 +0100
+Subject: [PATCH 4/7] Support upgrading Flock
+
+Changes made:
+* Add Flock repository URLs in VersionUpstreamValidator's standard remotes
+* Update the Git URL used to determine the Flutter version to Flock
+
+Patch-Dir: /home/runner/work/nest/nest/patches
+Patch-Filename: support_upgrading_flock.patch
+---
+ packages/flutter_tools/lib/src/version.dart | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/packages/flutter_tools/lib/src/version.dart b/packages/flutter_tools/lib/src/version.dart
+index e8e24a0a26d..bb0b933fbf4 100644
+--- a/packages/flutter_tools/lib/src/version.dart
++++ b/packages/flutter_tools/lib/src/version.dart
+@@ -775,6 +775,9 @@ class VersionUpstreamValidator {
+     'https://github.com/flutter/flutter.git',
+     'git@github.com:flutter/flutter.git',
+     'ssh://git@github.com/flutter/flutter.git',
++    'https://github.com/join-the-flock/flock.git',
++    'git@github.com:join-the-flock/flock.git',
++    'ssh://git@github.com/join-the-flock/flock.git'
+   ];
+ 
+   // Strips ".git" suffix from a given string, preferably an url.
+@@ -1031,7 +1034,7 @@ class GitTagVersion {
+         globals.printTrace('Skipping request to fetchTags - on well known channel $channel.');
+       } else {
+         final String flutterGit =
+-            platform.environment['FLUTTER_GIT_URL'] ?? 'https://github.com/flutter/flutter.git';
++            platform.environment['FLUTTER_GIT_URL'] ?? 'https://github.com/join-the-flock/flock.git';
+         _runGit('git fetch $flutterGit --tags -f', processUtils, workingDirectory);
+       }
+     }
+
+From 6f7d99fe3a9f653a16bd0444911cc9ceca51c796 Mon Sep 17 00:00:00 2001
+From: Jesse Ezell <jezell@users.noreply.github.com>
+Date: Mon, 2 Jun 2025 14:49:01 -0800
+Subject: [PATCH 5/7] Fix iOS builds
+
+Patch-Dir: /home/runner/work/nest/nest/patches
+Patch-Filename: fix_ios_builds.patch
+---
+ .../common/framework/Source/Logger.swift      | 30 +++++++++++++++++--
+ 1 file changed, 27 insertions(+), 3 deletions(-)
+
+diff --git a/engine/src/flutter/shell/platform/darwin/common/framework/Source/Logger.swift b/engine/src/flutter/shell/platform/darwin/common/framework/Source/Logger.swift
+index 089b2068a3b..851f8ea23d1 100644
+--- a/engine/src/flutter/shell/platform/darwin/common/framework/Source/Logger.swift
++++ b/engine/src/flutter/shell/platform/darwin/common/framework/Source/Logger.swift
+@@ -5,6 +5,8 @@
+ import Darwin
+ import Foundation
+ 
++import os
++
+ /// The level of logging severity.
+ ///
+ /// These levels are used by `Logger` to determine if a message should be output.
+@@ -116,11 +118,33 @@ public protocol OutputWriter {
+   func writeLine(level: LogLevel, _ message: String)
+ }
+ 
++/// Maps your existing `LogLevel` enum to Unified-Logging severities.
++/// Adjust the mapping to taste.
++private extension LogLevel {
++  var osType: OSLogType {
++    switch self {
++    case .info:      return .info
++    case .warning:   return .default
++    case .error:     return .error
++    case .important: return .fault
++    case .fatal:     return .fault
++    }
++  }
++}
++
++/// Writes to the system log using Unified Logging.
++/// The log is visible in Console.app (macOS) or via `log stream` on iOS.
+ final class SyslogOutputWriter: OutputWriter {
++
++  /// One static `OSLog` (or Swift-5.5 `Logger`) per subsystem/category pair
++  private static let log = OSLog(
++    subsystem: Bundle.main.bundleIdentifier ?? "org.flutter",
++    category: "flutter"
++  )
++
+   func writeLine(level: LogLevel, _ message: String) {
+-    // TODO(cbracken): replace this with os_log-based approach.
+-    // https://github.com/flutter/flutter/issues/44030
+-    message.withCString { vsyslog(LOG_ALERT, "%s", getVaList([$0])) }
++    // `%{public}@` = do not redact at runtime; use `%{private}@` for sensitive data
++    os_log("%{public}@", log: Self.log, type: level.osType, message)
+   }
+ }
+ 
+
+From fa0acad46e5b628efadbae455a112c4a45b7ec1f Mon Sep 17 00:00:00 2001
+From: Jesse Ezell <jesse.ezell@timu.com>
+Date: Sun, 25 May 2025 14:48:07 -0700
+Subject: [PATCH 6/7] automatically create nest prs from merged pull requests
+
+Patch-Dir: /home/runner/work/nest/nest/patches
+Patch-Filename: create-patch-pr.patch
+---
+ .github/workflows/create-patch-pr.yaml | 74 ++++++++++++++++++++++++++
+ 1 file changed, 74 insertions(+)
+ create mode 100644 .github/workflows/create-patch-pr.yaml
+
+diff --git a/.github/workflows/create-patch-pr.yaml b/.github/workflows/create-patch-pr.yaml
+new file mode 100644
+index 00000000000..8dbaa3cd208
+--- /dev/null
++++ b/.github/workflows/create-patch-pr.yaml
+@@ -0,0 +1,74 @@
++name: Sync merged PR to patches repo
++
++on:
++  pull_request_target:
++    types: [closed]
++    branches: [master]
++
++jobs:
++  export-and-pr:
++    if: contains(join(github.event.pull_request.labels.*.name, ','), 'merge')
++    runs-on: ubuntu-latest
++
++    permissions:
++      contents: read          # for actions/checkout on source repo
++      id-token: write         # if using OIDC to push
++      pull-requests: write    # to open the PR in destination repo
++
++    env:
++      DEST_REPO: ${{ vars.PATCH_REPO }}           # <── change
++      PATCHES_DIR: patches                       # folder managed by git-import-patches
++      BRANCH_NAME: add-patch-pr-${{ github.event.pull_request.number }}
++      GH_TOKEN: ${{ secrets.REPO_WORKFLOW_PAT }}   # PAT with repo scope on DEST_REPO
++
++    steps:
++      # 1. ---  Download the patch supplied by GitHub -----------------------------
++      - name: Download PR patch
++        id: patch
++        run: |
++          PR=${{ github.event.pull_request.number }}
++          SAFE_TITLE=$(echo "${{ github.event.pull_request.title }}" | tr ' ' '-' | tr -cd 'A-Za-z0-9._-')
++          PATCH_NAME="${PR}-${SAFE_TITLE}.patch"
++
++          # Works for private repos because we add the token
++          curl -L \
++            -H "Authorization: Bearer ${GH_TOKEN}" \
++            -H "Accept: application/vnd.github.v3.patch" \
++            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${PR}" \
++            -o "${PATCH_NAME}"
++
++          echo "patch_name=${PATCH_NAME}" >> "$GITHUB_OUTPUT"
++
++      # ── 2. Clone the destination (patches) repo on a new branch ───────────────
++      - name: Checkout destination repo
++        run: |
++          git clone "https://x-access-token:${GH_TOKEN}@github.com/${DEST_REPO}.git" dest
++          cd dest
++          git checkout -b "${BRANCH_NAME}"
++
++      # ── 3. Copy patch + update index file ─────────────────────────────────────
++      - name: Copy patch and update .patches
++        run: |
++          cd dest
++          PATCH="${{ steps.patch.outputs.patch_name }}"
++          cp "../${PATCH}" "${PATCHES_DIR}/${PATCH}"
++          echo "${PATCH}" >> "${PATCHES_DIR}/.patches"
++          git add "${PATCHES_DIR}/${PATCH}" "${PATCHES_DIR}/.patches"
++
++      # ── 4. Commit & push ──────────────────────────────────────────────────────
++      - name: Commit and push
++        run: |
++          cd dest
++          git config user.name  "patch-bot"
++          git config user.email "patch-bot@users.noreply.github.com"
++          git commit -m "chore: add patch for source PR #${{ github.event.pull_request.number }}"
++          git push -u origin "${BRANCH_NAME}"
++
++      # ── 5. Open PR against destination repo default branch ────────────────────
++      - name: Create PR in destination repo
++        run: |
++          cd dest
++          gh pr create \
++            --head "${BRANCH_NAME}" \
++            --title "Add patch for source PR #${{ github.event.pull_request.number }}" \
++            --body "Automated patch generated from ${{ github.repository }} PR #${{ github.event.pull_request.number }}."
+
+From 3416c4acff30a48b3793fa4d2e561dada78e6a7d Mon Sep 17 00:00:00 2001
+From: Jesse Ezell <jesse.ezell@timu.com>
+Date: Sun, 13 Jul 2025 18:24:47 -0700
+Subject: [PATCH 7/7] Add Nest ID
+
+---
+ NEST.md | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 NEST.md
+
+diff --git a/NEST.md b/NEST.md
+new file mode 100644
+index 00000000000..949fb8bab92
+--- /dev/null
++++ b/NEST.md
+@@ -0,0 +1 @@
++This Flutter version was built using Nest (http://github.com/join-the-flock/nest)
