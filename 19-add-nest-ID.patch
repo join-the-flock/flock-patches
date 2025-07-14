@@ -1,0 +1,18 @@
+From 919f0ec81592d50a47d53b7eb5b504706dff86e7 Mon Sep 17 00:00:00 2001
+From: Jesse Ezell <jesse.ezell@timu.com>
+Date: Sun, 13 Jul 2025 18:58:55 -0700
+Subject: [PATCH] add nest ID
+
+---
+ NEST.md | 2 ++
+ 1 file changed, 2 insertions(+)
+ create mode 100644 NEST.md
+
+diff --git a/NEST.md b/NEST.md
+new file mode 100644
+index 00000000000..9548445f0f1
+--- /dev/null
++++ b/NEST.md
+@@ -0,0 +1,2 @@
++This Flutter branch was built using nest (https://github.com/join-the-flock/nest).
++
