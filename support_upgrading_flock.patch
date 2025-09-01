@@ -27,6 +27,6 @@ index 4902f732ea..b9c4e4e222 100644
          final String flutterGit =
 -            platform.environment['FLUTTER_GIT_URL'] ?? 'https://github.com/flutter/flutter.git';
 +            platform.environment['FLUTTER_GIT_URL'] ?? 'https://github.com/join-the-flock/flock.git';
-         _runGit('git fetch $flutterGit --tags -f', processUtils, workingDirectory);
+         git.runSync(['fetch', flutterGit, '--tags', '-f'], workingDirectory: workingDirectory);
        }
      }
