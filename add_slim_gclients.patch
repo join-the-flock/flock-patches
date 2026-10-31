@@ -5,7 +5,7 @@ Subject: Add engine build ci infra
 
 diff --git a/engine/scripts/slim-linux-android.gclient b/engine/scripts/slim-linux-android.gclient
 new file mode 100644
-index 0000000000..ef6c08d028
+index 0000000000000000000000000000000000000000..ef6c08d0282d085e4b1c5dc8b3b4bd1f14416064
 --- /dev/null
 +++ b/engine/scripts/slim-linux-android.gclient
 @@ -0,0 +1,23 @@
@@ -35,7 +35,7 @@ index 0000000000..ef6c08d028
 \ No newline at end of file
 diff --git a/engine/scripts/slim-linux-desktop.gclient b/engine/scripts/slim-linux-desktop.gclient
 new file mode 100644
-index 0000000000..b7d27e26fb
+index 0000000000000000000000000000000000000000..b7d27e26fb7281a865c70cdc8b5d5646c0f90c0e
 --- /dev/null
 +++ b/engine/scripts/slim-linux-desktop.gclient
 @@ -0,0 +1,23 @@
@@ -65,7 +65,7 @@ index 0000000000..b7d27e26fb
 \ No newline at end of file
 diff --git a/engine/scripts/slim-linux-web.gclient b/engine/scripts/slim-linux-web.gclient
 new file mode 100644
-index 0000000000..84524ab817
+index 0000000000000000000000000000000000000000..84524ab81756bee470cd0fc6aa3b25952c6d0d69
 --- /dev/null
 +++ b/engine/scripts/slim-linux-web.gclient
 @@ -0,0 +1,24 @@
@@ -96,7 +96,7 @@ index 0000000000..84524ab817
 \ No newline at end of file
 diff --git a/engine/scripts/slim-mac.gclient b/engine/scripts/slim-mac.gclient
 new file mode 100644
-index 0000000000..38be3fde02
+index 0000000000000000000000000000000000000000..38be3fde028c3783508b0c33eb54648cdcc9fb5f
 --- /dev/null
 +++ b/engine/scripts/slim-mac.gclient
 @@ -0,0 +1,23 @@
@@ -126,7 +126,7 @@ index 0000000000..38be3fde02
 \ No newline at end of file
 diff --git a/engine/scripts/slim-windows.gclient b/engine/scripts/slim-windows.gclient
 new file mode 100644
-index 0000000000..581802c425
+index 0000000000000000000000000000000000000000..581802c425ffb37503a5951f9e9b220dccabf07c
 --- /dev/null
 +++ b/engine/scripts/slim-windows.gclient
 @@ -0,0 +1,22 @@
@@ -154,7 +154,7 @@ index 0000000000..581802c425
 +]
 \ No newline at end of file
 diff --git a/engine/src/flutter/tools/engine_tool/lib/src/build_plan.dart b/engine/src/flutter/tools/engine_tool/lib/src/build_plan.dart
-index 90dcb4eb99..4e45d46aae 100644
+index 577b44b84cc41ceb55b180768e6592a68f230663..ab475ee7cdf508ff2caf025be5d6a4b17ec50e01 100644
 --- a/engine/src/flutter/tools/engine_tool/lib/src/build_plan.dart
 +++ b/engine/src/flutter/tools/engine_tool/lib/src/build_plan.dart
 @@ -16,6 +16,7 @@ const _flagConfig = 'config';
@@ -165,15 +165,15 @@ index 90dcb4eb99..4e45d46aae 100644
  const _flagLto = 'lto';
  const _flagExtraGnArgs = 'gn-args';
  
-@@ -50,6 +51,7 @@ final class BuildPlan {
+@@ -52,6 +53,7 @@ final class BuildPlan {
      return BuildPlan._(
        build: build,
        strategy: BuildStrategy.values.byName(args.option(_flagStrategy)!),
 +      runTests: args.flag(_flagRunTests),
        useRbe: () {
-         final useRbe = args.flag(_flagRbe);
+         final bool useRbe = args.flag(_flagRbe);
          if (useRbe && !environment.hasRbeConfigInTree()) {
-@@ -84,6 +86,7 @@ final class BuildPlan {
+@@ -86,6 +88,7 @@ final class BuildPlan {
    BuildPlan._({
      required this.build,
      required this.strategy,
@@ -181,7 +181,7 @@ index 90dcb4eb99..4e45d46aae 100644
      required this.useRbe,
      required this.useLto,
      required this.concurrency,
-@@ -202,6 +205,19 @@ final class BuildPlan {
+@@ -203,6 +206,19 @@ final class BuildPlan {
        hide: !environment.verbose,
      );
  
@@ -199,9 +199,9 @@ index 90dcb4eb99..4e45d46aae 100644
 +    );
 +
      // Add --rbe.
-     final hasRbeConfigInTree = environment.hasRbeConfigInTree();
+     final bool hasRbeConfigInTree = environment.hasRbeConfigInTree();
      parser.addFlag(
-@@ -245,6 +261,9 @@ final class BuildPlan {
+@@ -246,6 +262,9 @@ final class BuildPlan {
      return builds;
    }
  
@@ -212,7 +212,7 @@ index 90dcb4eb99..4e45d46aae 100644
    final Build build;
  
 diff --git a/engine/src/flutter/tools/engine_tool/lib/src/build_utils.dart b/engine/src/flutter/tools/engine_tool/lib/src/build_utils.dart
-index f58160fcbe..3948c42b58 100644
+index c1567041f0f2bf78604d52b446ea2a5de1bc975b..ccf21d0b24e3c89f613434828419ba6d52ba367c 100644
 --- a/engine/src/flutter/tools/engine_tool/lib/src/build_utils.dart
 +++ b/engine/src/flutter/tools/engine_tool/lib/src/build_utils.dart
 @@ -80,6 +80,7 @@ Future<int> runBuild(
@@ -233,7 +233,7 @@ index f58160fcbe..3948c42b58 100644
        ...targets.map((Label label) => label.toNinjaLabel()),
        // If the environment is verbose, pass the verbose flag to ninja.
 diff --git a/engine/src/flutter/tools/engine_tool/lib/src/commands/build_command.dart b/engine/src/flutter/tools/engine_tool/lib/src/commands/build_command.dart
-index ac8df2658c..39578291c5 100644
+index 61b23786f2cd21938fadb02ae8ef646038922ec5..6ecf2303c031421e89a2ce7782e181cb82bba925 100644
 --- a/engine/src/flutter/tools/engine_tool/lib/src/commands/build_command.dart
 +++ b/engine/src/flutter/tools/engine_tool/lib/src/commands/build_command.dart
 @@ -76,6 +76,7 @@ et build //flutter/fml:fml_benchmarks  # Build a specific target in `//flutter/f
@@ -245,7 +245,7 @@ index ac8df2658c..39578291c5 100644
        rbeConfig: plan.toRbeConfig(),
      );
 diff --git a/engine/src/flutter/tools/pkg/engine_build_configs/lib/src/build_config.dart b/engine/src/flutter/tools/pkg/engine_build_configs/lib/src/build_config.dart
-index 791c718938..9625b66623 100644
+index f1dfce8ea2ad1158b76d6d1ebb90960db2da0096..72f982119e4be4bd0a56189c13e325827de04d32 100644
 --- a/engine/src/flutter/tools/pkg/engine_build_configs/lib/src/build_config.dart
 +++ b/engine/src/flutter/tools/pkg/engine_build_configs/lib/src/build_config.dart
 @@ -223,7 +223,6 @@ final class Build extends BuildConfigBase {
@@ -305,10 +305,10 @@ index 791c718938..9625b66623 100644
    if (map[field]! is! String) {
      appendTypeError(map, field, 'string', errors);
 diff --git a/engine/src/flutter/tools/pkg/engine_build_configs/lib/src/build_config_runner.dart b/engine/src/flutter/tools/pkg/engine_build_configs/lib/src/build_config_runner.dart
-index b021fa115d..def61d639c 100644
+index 62996bde7969bc7c9657bd58fd397fb9934d2080..348dc243b190d335aa6c62114b81ea869b4aeed6 100644
 --- a/engine/src/flutter/tools/pkg/engine_build_configs/lib/src/build_config_runner.dart
 +++ b/engine/src/flutter/tools/pkg/engine_build_configs/lib/src/build_config_runner.dart
-@@ -575,6 +575,9 @@ final class BuildRunner extends Runner {
+@@ -638,6 +638,9 @@ final class BuildRunner extends Runner {
    }
  
    Future<bool> _runNinja(RunnerEventHandler eventHandler) async {
@@ -318,12 +318,3 @@ index b021fa115d..def61d639c 100644
      if (_isRbe) {
        if (!await _bootstrapRbe(eventHandler)) {
          return false;
-@@ -807,7 +810,7 @@ final class BuildTestRunner extends Runner {
- 
-   @override
-   Future<bool> run(RunnerEventHandler eventHandler) async {
--    final String interpreter = _interpreter(test.language);
-+    final String interpreter = test.language != null ? _interpreter(test.language!) : "";
-     final List<String> command = <String>[
-       if (interpreter.isNotEmpty) interpreter,
-       test.script,
