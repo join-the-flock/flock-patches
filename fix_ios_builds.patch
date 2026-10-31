@@ -4,7 +4,7 @@ Date: Sun, 2 Jun 2025 14:49:01 -0800
 Subject: Fix iOS builds
 
 diff --git a/engine/src/flutter/shell/platform/darwin/common/framework/Source/Logger.swift b/engine/src/flutter/shell/platform/darwin/common/framework/Source/Logger.swift
-index 089b2068a3..56bacf1731 100644
+index a4db8d8fab9787121a7b1cae0a4f60edc3d0e99f..94a1542c5f9213955d1a1abde527af98e30a972b 100644
 --- a/engine/src/flutter/shell/platform/darwin/common/framework/Source/Logger.swift
 +++ b/engine/src/flutter/shell/platform/darwin/common/framework/Source/Logger.swift
 @@ -5,6 +5,8 @@
@@ -16,7 +16,7 @@ index 089b2068a3..56bacf1731 100644
  /// The level of logging severity.
  ///
  /// These levels are used by `Logger` to determine if a message should be output.
-@@ -116,11 +118,33 @@ public protocol OutputWriter {
+@@ -182,10 +184,32 @@ protocol OutputWriter: Sendable {
    func writeLine(level: LogLevel, _ message: String)
  }
  
@@ -36,7 +36,7 @@ index 089b2068a3..56bacf1731 100644
 +
 +/// Writes to the system log using Unified Logging.
 +/// The log is visible in Console.app (macOS) or via `log stream` on iOS.
- final class SyslogOutputWriter: OutputWriter {
+ final class SyslogOutputWriter: OutputWriter, Sendable {
 +
 +  /// One static `OSLog` (or Swift-5.5 `Logger`) per subsystem/category pair
 +  private static let log = OSLog(
@@ -52,4 +52,3 @@ index 089b2068a3..56bacf1731 100644
 +    os_log("%{public}@", log: Self.log, type: level.osType, message)
    }
  }
-
