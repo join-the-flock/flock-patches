@@ -31,7 +31,7 @@ jobs:
       - name: Resolve tooling dependencies
         run: dart pub get --enforce-lockfile
       - name: Check Dart formatting
-        run: dart format --output=none --set-exit-if-changed bin lib test
+        run: dart format --output=none --set-exit-if-changed bin test
       - name: Analyze Dart tooling
         run: dart analyze --fatal-infos
       - name: Test the validator

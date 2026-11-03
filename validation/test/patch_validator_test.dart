@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flock_patches_infra/patch_validator.dart';
 import 'package:path/path.dart' as path;
 import 'package:test/test.dart';
 
@@ -10,7 +9,6 @@ void main() {
     late Directory root;
     late File manifest;
     late File patch;
-    late PatchValidator validator;
 
     setUp(() {
       root = Directory.systemTemp.createTempSync('flock-patch-tests-');
@@ -18,7 +16,6 @@ void main() {
         ..writeAsStringSync('example.patch');
       patch = File(path.join(root.path, 'example.patch'))
         ..writeAsStringSync(_validPatch);
-      validator = PatchValidator();
     });
 
     tearDown(() => root.deleteSync(recursive: true));
@@ -31,7 +28,7 @@ void main() {
             for (final file in root.listSync().whereType<File>())
               file.path: file.readAsBytesSync(),
           };
-          expect(await validator.validate(root), isEmpty);
+          await _expectValidationSuccess(root);
           expect({
             for (final file in root.listSync().whereType<File>())
               file.path: file.readAsBytesSync(),
@@ -40,14 +37,13 @@ void main() {
       );
 
       test('ignores inherited Git checkout context', () async {
-        final validator = PatchValidator(
+        await _expectValidationSuccess(
+          root,
           environment: {
-            ...Platform.environment,
             'GIT_DIR': '/nonexistent',
             'GIT_WORK_TREE': '/nonexistent',
           },
         );
-        expect(await validator.validate(root), isEmpty);
       });
     });
 
@@ -56,24 +52,16 @@ void main() {
         final nested = Directory(path.join(root.path, 'nested'))..createSync();
         patch.renameSync(path.join(nested.path, 'example.patch'));
         manifest.writeAsStringSync('nested/example.patch\n');
-        expect(await validator.validate(root), isEmpty);
+        await _expectValidationSuccess(root);
       });
 
       test('rejects missing, empty and invalid UTF-8 manifests', () async {
         manifest.deleteSync();
-        await _expectValidationFailure(
-          validator,
-          root,
-          '.patches must be a regular file',
-        );
+        await _expectValidationFailure(root, '.patches must be a regular file');
         manifest.writeAsStringSync('');
-        await _expectValidationFailure(
-          validator,
-          root,
-          'must list at least one patch',
-        );
+        await _expectValidationFailure(root, 'must list at least one patch');
         manifest.writeAsBytesSync([255]);
-        await _expectValidationFailure(validator, root, 'cannot read .patches');
+        await _expectValidationFailure(root, 'cannot read .patches');
       });
 
       test('rejects blank, duplicate and missing manifest entries', () async {
@@ -83,7 +71,7 @@ void main() {
           ('missing.patch\n', 'missing patch'),
         ]) {
           manifest.writeAsStringSync(contents);
-          await _expectValidationFailure(validator, root, expected);
+          await _expectValidationFailure(root, expected);
         }
       });
 
@@ -91,11 +79,10 @@ void main() {
         final metadata = Directory(path.join(root.path, '.git'))..createSync();
         File(path.join(metadata.path, 'internal.patch'))
             .writeAsStringSync('not a collection entry');
-        expect(await validator.validate(root), isEmpty);
+        await _expectValidationSuccess(root);
         File(path.join(root.path, 'unlisted.patch'))
             .writeAsStringSync(_validPatch);
         await _expectValidationFailure(
-          validator,
           root,
           'unlisted.patch: patch is not listed',
         );
@@ -112,7 +99,7 @@ void main() {
           'C:/outside.patch',
         ]) {
           manifest.writeAsStringSync(name);
-          await _expectValidationFailure(validator, root, 'safe relative');
+          await _expectValidationFailure(root, 'safe relative');
         }
       });
 
@@ -122,24 +109,15 @@ void main() {
           patch.deleteSync();
           Link(patch.path)
               .createSync(path.join(root.parent.path, 'outside.patch'));
-          await _expectValidationFailure(
-            validator,
-            root,
-            'cannot contain symlinks',
-          );
+          await _expectValidationFailure(root, 'cannot contain symlinks');
           Link(patch.path).deleteSync();
           patch.writeAsStringSync(_validPatch);
           Link(path.join(root.path, 'linked')).createSync(root.path);
           manifest.writeAsStringSync('linked/example.patch');
-          await _expectValidationFailure(
-            validator,
-            root,
-            'cannot contain symlinks',
-          );
+          await _expectValidationFailure(root, 'cannot contain symlinks');
           manifest.deleteSync();
           Link(manifest.path).createSync(patch.path);
           await _expectValidationFailure(
-            validator,
             root,
             '.patches must be a regular file',
           );
@@ -150,14 +128,10 @@ void main() {
     group('Mail >', () {
       test('checks every commit in a multi-commit patch', () async {
         patch.writeAsStringSync('$_validPatch\n$_validPatch');
-        expect(await validator.validate(root), isEmpty);
+        await _expectValidationSuccess(root);
         final broken = _patchMail + _patchDiff.replaceFirst('+1 @@', '+1,2 @@');
         patch.writeAsStringSync('$_validPatch\n$broken');
-        await _expectValidationFailure(
-          validator,
-          root,
-          'commit 2: invalid diff',
-        );
+        await _expectValidationFailure(root, 'commit 2: invalid diff');
       });
 
       test(
@@ -171,22 +145,18 @@ void main() {
                 )
                 .replaceFirst('Tue, 3 Nov', 'Sun, 3 Nov'),
           );
-          expect(await validator.validate(root), isEmpty);
+          await _expectValidationSuccess(root);
         },
       );
 
       test('accepts Windows line endings', () async {
         patch.writeAsStringSync(_validPatch.replaceAll('\n', '\r\n'));
-        expect(await validator.validate(root), isEmpty);
+        await _expectValidationSuccess(root);
       });
 
       test('requires UTF-8 patch files for Nest import', () async {
         patch.writeAsBytesSync([...utf8.encode(_patchMail + _patchDiff), 255]);
-        await _expectValidationFailure(
-          validator,
-          root,
-          'patch files must be UTF-8',
-        );
+        await _expectValidationFailure(root, 'patch files must be UTF-8');
       });
 
       test('rejects missing author, date and subject metadata', () async {
@@ -196,7 +166,7 @@ void main() {
           ('Subject: [PATCH] Add an example\n', 'missing Subject'),
         ]) {
           patch.writeAsStringSync(_validPatch.replaceFirst(header, ''));
-          await _expectValidationFailure(validator, root, expected);
+          await _expectValidationFailure(root, expected);
         }
       });
 
@@ -207,11 +177,11 @@ void main() {
             'not a date',
           ),
         );
-        await _expectValidationFailure(validator, root, 'invalid author date');
+        await _expectValidationFailure(root, 'invalid author date');
         patch.writeAsStringSync(
           _validPatch.replaceFirst('author@example.com', 'invalid-email'),
         );
-        await _expectValidationFailure(validator, root, 'invalid author email');
+        await _expectValidationFailure(root, 'invalid author email');
       });
     });
 
@@ -228,7 +198,7 @@ void main() {
             ),
           ]) {
             patch.writeAsStringSync(data);
-            await _expectValidationFailure(validator, root, expected);
+            await _expectValidationFailure(root, expected);
           }
         },
       );
@@ -237,7 +207,7 @@ void main() {
         patch.writeAsStringSync(
           _patchMail + _patchDiff.replaceAll('example.txt', '../outside.txt'),
         );
-        await _expectValidationFailure(validator, root, 'unsafe diff path');
+        await _expectValidationFailure(root, 'unsafe diff path');
       });
 
       test('supports mode-only and rename patches', () async {
@@ -246,7 +216,7 @@ void main() {
           'diff --git a/old.txt b/new.txt\nsimilarity index 100%\nrename from old.txt\nrename to new.txt\n',
         ]) {
           patch.writeAsStringSync(_patchMail + changes);
-          expect(await validator.validate(root), isEmpty);
+          await _expectValidationSuccess(root);
         }
       });
 
@@ -264,7 +234,7 @@ void main() {
         expect(result.exitCode, 1);
         binary.deleteSync();
         patch.writeAsStringSync(_patchMail + (result.stdout as String));
-        expect(await validator.validate(root), isEmpty);
+        await _expectValidationSuccess(root);
       });
     });
 
@@ -283,12 +253,33 @@ void main() {
   });
 }
 
-Future<void> _expectValidationFailure(
-  PatchValidator validator,
-  Directory root,
-  String message,
-) async {
-  expect(await validator.validate(root), anyElement(contains(message)));
+Future<void> _expectValidationSuccess(
+  Directory root, {
+  Map<String, String> environment = const {},
+}) async {
+  final result = await _runValidator(root, environment: environment);
+  expect(result.exitCode, 0, reason: result.stderr as String);
+  expect(
+    result.stdout,
+    contains('Patch manifest, mail metadata, and diff syntax are valid.'),
+  );
+}
+
+Future<void> _expectValidationFailure(Directory root, String message) async {
+  final result = await _runValidator(root);
+  expect(result.exitCode, 1);
+  expect(result.stderr, contains(message));
+}
+
+Future<ProcessResult> _runValidator(
+  Directory root, {
+  Map<String, String> environment = const {},
+}) {
+  return Process.run(Platform.resolvedExecutable, [
+    '--packages=${path.absolute('.dart_tool', 'package_config.json')}',
+    path.absolute('bin', 'validate.dart'),
+    root.path,
+  ], environment: environment);
 }
 
 const _validPatch = _patchMail + _patchDiff;

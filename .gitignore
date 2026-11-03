@@ -1,2 +1,6 @@
 # Android Studio
 .idea/
+
+# Dart validation tools
+/validation/.dart_tool/
+/validation/build/
