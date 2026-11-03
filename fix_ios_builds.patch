@@ -1,7 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Jesse Ezell <jezell@users.noreply.github.com>
-Date: Sun, 2 Jun 2025 14:49:01 -0800
+Date: Mon, 2 Jun 2025 14:49:01 -0800
 Subject: Fix iOS builds
+
 
 diff --git a/engine/src/flutter/shell/platform/darwin/common/framework/Source/Logger.swift b/engine/src/flutter/shell/platform/darwin/common/framework/Source/Logger.swift
 index a4db8d8fab9787121a7b1cae0a4f60edc3d0e99f..94a1542c5f9213955d1a1abde527af98e30a972b 100644
@@ -16,7 +17,7 @@ index a4db8d8fab9787121a7b1cae0a4f60edc3d0e99f..94a1542c5f9213955d1a1abde527af98
  /// The level of logging severity.
  ///
  /// These levels are used by `Logger` to determine if a message should be output.
-@@ -182,10 +184,32 @@ protocol OutputWriter: Sendable {
+@@ -182,11 +184,33 @@ protocol OutputWriter: Sendable {
    func writeLine(level: LogLevel, _ message: String)
  }
  
@@ -52,3 +53,4 @@ index a4db8d8fab9787121a7b1cae0a4f60edc3d0e99f..94a1542c5f9213955d1a1abde527af98
 +    os_log("%{public}@", log: Self.log, type: level.osType, message)
    }
  }
+ 
