@@ -7,7 +7,13 @@ alongside infrastructure changes.
 
 - Infrastructure tools, tests, package configuration, and this specification live
   in `validation/`. GitHub workflow entrypoints remain in `.github/workflows/`.
+- Executable commands live in `bin/`, reusable implementation in `lib/`, and
+  tests in `test/`, with test filenames matching their implementation files.
 - Repository-owned tools and tests are written in Dart wherever feasible.
+- Dart naming, formatting, and member ordering follow
+  [FBH code formatting](https://github.com/Flutter-Bounty-Hunters/fbh_dev_practices/blob/main/skills/shared-code-skills/dart_code_formatting.md).
+  Test naming, groups, and helper organization follow
+  [FBH Dart and Flutter tests](https://github.com/Flutter-Bounty-Hunters/fbh_dev_practices/blob/main/skills/shared-code-skills/dart_and_flutter_tests.md).
 - CI uses the standalone stable Dart SDK and the checked-in dependency lockfile.
 - Run Dart commands from `validation/`. The validator defaults to the parent
   repository's patch collection and accepts an explicit repository path.

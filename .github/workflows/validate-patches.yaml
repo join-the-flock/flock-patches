@@ -31,13 +31,13 @@ jobs:
       - name: Resolve tooling dependencies
         run: dart pub get --enforce-lockfile
       - name: Check Dart formatting
-        run: dart format --output=none --set-exit-if-changed lib tools test
+        run: dart format --output=none --set-exit-if-changed bin lib test
       - name: Analyze Dart tooling
         run: dart analyze --fatal-infos
       - name: Test the validator
         run: dart test
       - name: Validate the complete patch collection
-        run: dart run tools/validate_patches.dart
+        run: dart run bin/validate.dart
 
   # Future full-channel application jobs belong here, with needs: lightweight.
   # GitHub then skips those jobs if lightweight validation fails.

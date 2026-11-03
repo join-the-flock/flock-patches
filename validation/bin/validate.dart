@@ -1,13 +1,13 @@
 import 'dart:io';
 
-import 'package:flock_patches_infra/patch_validation.dart';
+import 'package:flock_patches_infra/patch_validator.dart';
 
 Future<void> main(List<String> arguments) async {
   if (arguments.length > 1 ||
       arguments.any((argument) => argument.startsWith('-'))) {
     final help = arguments.length == 1 && arguments.single == '--help';
     (help ? stdout : stderr).writeln(
-      'Usage: dart run tools/validate_patches.dart [repository]',
+      'Usage: dart run bin/validate.dart [repository]',
     );
     exitCode = help ? 0 : 64;
     return;
