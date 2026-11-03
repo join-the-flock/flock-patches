@@ -1,0 +1,31 @@
+name: Validate patches
+
+on:
+  pull_request:
+    branches: [master, beta, stable]
+  merge_group:
+    types: [checks_requested]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: patch-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lightweight:
+    name: Lightweight patch validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Test the validator
+        run: python3 -m unittest discover -s tests -v
+      - name: Validate the complete patch collection
+        run: python3 tools/validate_patches.py
+
+  # Future full-channel application jobs belong here, with needs: lightweight.
+  # GitHub then skips those jobs if lightweight validation fails.
