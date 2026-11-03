@@ -1,0 +1,580 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Matt Carroll <matthew-carroll@users.noreply.github.com>
+Date: Tue, 3 Nov 2026 10:53:05 -0500
+Subject: Report Flock version with Flutter version
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Running `fvm flutter --version` now reports Flock-relevant info.
+
+This patch only impacts the Flutter tool. It alters the Flutter tool's version reporting behavior.
+
+Example output:
+Flock (Flutter 3.50.0-1.0.pre-364) • channel master • branch 31134_feature_add-min-lines-to-text-widget • https://github.com/join-the-flock/flock.git
+Flock framework • revision 43cb4babf2 (1 year, 5 months ago) • 2025-05-25 14:48:07 -0700
+Flutter upstream • revision 0cfd273f47 (12 hours ago) • 2026-11-03 02:51:58 +0000
+Engine • hash 4aa1c0903151d534fae62656cc7b1fe9b60dae0e (revision 0cfd273f47) (12 hours ago) • 2026-11-03 02:51:58.000Z
+Tools • Dart 3.15.0 (build 3.15.0-101.0.dev) • DevTools 2.62.0-dev.0
+
+diff --git a/packages/flutter_tools/lib/src/flock_version.dart b/packages/flutter_tools/lib/src/flock_version.dart
+new file mode 100644
+index 0000000000000000000000000000000000000000..e3f3f3f2a06ae39f6a277a4d50debfcbabbe9dde
+--- /dev/null
++++ b/packages/flutter_tools/lib/src/flock_version.dart
+@@ -0,0 +1,200 @@
++// Copyright 2026 The Flutter Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++part of 'version.dart';
++
++/// Flock's human-readable version reporting, isolated from Flutter's formatter.
++/// Being a part keeps dependencies private and leaves JSON reporting untouched.
++class _FlockVersionDescription {
++  _FlockVersionDescription(this._version);
++
++  final FlutterVersion _version;
++
++  String heading(String fallbackVersionText) {
++    final FlockUpstream? upstream = _upstream;
++    final String versionText = upstream == null
++        ? fallbackVersionText
++        : _upstreamVersionText(upstream);
++    final String branch = upstream == null
++        ? _version.getBranchName()
++        : _version._git
++              .runSync(['symbolic-ref', '--short', 'HEAD'], workingDirectory: _version.flutterRoot)
++              .stdout
++              .trim();
++    final String distributionChannel = _distributionChannel(branch);
++    final branchText = branch != distributionChannel
++        ? ' • branch ${branch.isEmpty || branch == 'HEAD' ? 'detached' : branch}'
++        : '';
++    return 'Flock (Flutter$versionText) • channel $distributionChannel$branchText • https://github.com/join-the-flock/flock.git';
++  }
++
++  String _upstreamVersionText(FlockUpstream upstream) {
++    final String version = GitTagVersion.determine(
++      _version._platform ?? globals.platform,
++      git: _version._git,
++      gitRef: upstream.revision,
++      workingDirectory: _version.flutterRoot,
++      logger: _version._logger,
++    ).frameworkVersionFor(upstream.revision);
++    return version == kUnknownFrameworkVersion ? '' : ' $version';
++  }
++
++  String get frameworkText {
++    final frameworkText =
++        'Flock framework • revision ${_version.frameworkRevisionShort} (${_version.frameworkAge}) • ${_version.frameworkCommitDate}';
++    final FlockUpstream? upstream = _upstream;
++    final upstreamText = upstream == null
++        ? 'Flutter upstream • revision unknown'
++        : 'Flutter upstream • revision ${_shortGitRevision(upstream.revision)} '
++              '(${_version._clock.now().difference(DateTime.parse(upstream.commitDate)).ago()}) '
++              '• ${upstream.commitDate}';
++    return '$frameworkText\n$upstreamText';
++  }
++
++  late final FlockUpstream? _upstream =
++      _version.fs.directory(_version.fs.path.join(_version.flutterRoot, '.git')).existsSync() ||
++          _version.fs.file(_version.fs.path.join(_version.flutterRoot, '.git')).existsSync()
++      ? FlockUpstream.determine(
++          git: _version._git,
++          flutterRoot: _version.flutterRoot,
++          revision: _version.frameworkRevision,
++        )
++      : null;
++
++  String _distributionChannel(String branch) {
++    if (kOfficialChannels.contains(branch)) {
++      return branch;
++    }
++    if (_upstream == null) {
++      return kOfficialChannels.contains(_version.channel) ? _version.channel : 'unknown';
++    }
++    // A feature branch may track another feature branch. Only official names
++    // provide evidence of a distribution channel.
++    final RunResult tracking = _version._git.runSync([
++      'rev-parse',
++      '--abbrev-ref',
++      '--symbolic',
++      kGitTrackingUpstream,
++    ], workingDirectory: _version.flutterRoot);
++    final String trackedBranch = tracking.stdout.trim().split('/').skip(1).join('/');
++    if (tracking.exitCode == 0 && kOfficialChannels.contains(trackedBranch)) {
++      return trackedBranch;
++    }
++    final RunResult branches = _version._git.runSync([
++      'for-each-ref',
++      '--format=%(refname)',
++      '--contains',
++      _upstream.revision,
++      'refs/heads/',
++      'refs/remotes/',
++    ], workingDirectory: _version.flutterRoot);
++    final localChannels = <String>{};
++    final remoteChannels = <String>{};
++    for (final String ref in branches.stdout.trim().split('\n')) {
++      final List<String> parts = ref.split('/');
++      switch (parts) {
++        case ['refs', 'heads', final String name] when kOfficialChannels.contains(name):
++          localChannels.add(name);
++        case ['refs', 'remotes', _, final String name] when kOfficialChannels.contains(name):
++          remoteChannels.add(name);
++      }
++    }
++    // A local distribution branch is stronger evidence than remote branches:
++    // Flutter's master/main aliases can both contain the same upstream commit.
++    final channels = localChannels.isNotEmpty ? localChannels : remoteChannels;
++    return branches.exitCode == 0 && channels.length == 1 ? channels.single : 'unknown';
++  }
++}
++
++/// The included Flutter commit, before Nest's assembly commits and patches.
++/// This is presentation metadata; it never replaces the Flock SDK revision.
++@visibleForTesting
++class FlockUpstream {
++  const FlockUpstream(this.revision, this.commitDate);
++
++  final String revision;
++  final String commitDate;
++
++  static FlockUpstream? determine({
++    required Git git,
++    required String flutterRoot,
++    required String revision,
++  }) {
++    RunResult log(String ref, {bool findPatch = false}) => git.logSync([
++      ref,
++      '--first-parent',
++      '-n',
++      '1',
++      '--format=%H%x00%P%x00%ai%x00%s%x00%b',
++      if (findPatch) '--grep=^Patch-Filename: ',
++    ], workingDirectory: flutterRoot);
++
++    // Published branches retain these headers from git-import-patches, but
++    // push-flock-repo does not publish refs/patches/upstream-head.
++    RunResult result = log(revision, findPatch: true);
++    if (result.exitCode != 0) {
++      return null;
++    }
++    String candidate;
++    if (result.stdout.trim().isNotEmpty) {
++      final visited = <String>{};
++      while (true) {
++        final List<String> fields = result.stdout.trim().split('\x00');
++        if (result.exitCode != 0 || fields.length != 5 || !visited.add(fields[0])) {
++          return null;
++        }
++        final bool isPatch = RegExp(
++          r'^Patch-Filename: .+\.patch$',
++          multiLine: true,
++        ).hasMatch(fields[4]);
++        // CI pins the engine before importing patches, so upstream-head can
++        // itself be an assembly commit. Its parent is the included Flutter.
++        final isEnginePin = fields[3] == 'save engine version';
++        if (!isPatch && !isEnginePin) {
++          candidate = fields[0];
++          break;
++        }
++        final List<String> parents = fields[1].split(' ');
++        if (parents.length != 1 || parents.single.isEmpty) {
++          return null;
++        }
++        result = log(parents.single);
++      }
++    } else {
++      final RunResult ref = git.runSync([
++        'rev-parse',
++        '--verify',
++        'refs/patches/upstream-head^{commit}',
++      ], workingDirectory: flutterRoot);
++      if (ref.exitCode != 0 || ref.stdout.trim().isEmpty) {
++        return null;
++      }
++      candidate = ref.stdout.trim();
++      result = log(candidate);
++      final List<String> fields = result.stdout.trim().split('\x00');
++      if (result.exitCode != 0 || fields.length != 5) {
++        return null;
++      }
++      if (fields[3] == 'save engine version') {
++        candidate = fields[1];
++        result = log(candidate);
++      }
++    }
++    // Reject unrelated assembly refs and incomplete shallow history.
++    final RunResult ancestor = git.runSync([
++      'merge-base',
++      '--is-ancestor',
++      candidate,
++      revision,
++    ], workingDirectory: flutterRoot);
++    final List<String> fields = result.stdout.trim().split('\x00');
++    if (ancestor.exitCode != 0 ||
++        result.exitCode != 0 ||
++        fields.length != 5 ||
++        DateTime.tryParse(fields[2]) == null) {
++      return null;
++    }
++    return FlockUpstream(candidate, fields[2]);
++  }
++}
+diff --git a/packages/flutter_tools/lib/src/version.dart b/packages/flutter_tools/lib/src/version.dart
+index aec57783b09251d8b490ed76b1d89e8d4785d7ae..278c420070b9ed7fe87d6c8c4900c36217c795dd 100644
+--- a/packages/flutter_tools/lib/src/version.dart
++++ b/packages/flutter_tools/lib/src/version.dart
+@@ -17,6 +17,8 @@ import 'features.dart';
+ import 'git.dart';
+ import 'globals.dart' as globals;
+ 
++part 'flock_version.dart';
++
+ /// The default version when a version could not be determined.
+ const kUnknownFrameworkVersion = '0.0.0-unknown';
+ 
+@@ -85,6 +87,7 @@ abstract class FlutterVersion {
+     if (!fetchTags && versionFile.existsSync()) {
+       final _FlutterVersionFromFile? version = _FlutterVersionFromFile.tryParseFromFile(
+         versionFile,
++        clock: clock,
+         git: git,
+         flutterRoot: flutterRoot,
+         logger: logger,
+@@ -286,11 +289,10 @@ abstract class FlutterVersion {
+ 
+   @override
+   String toString() {
++    final flock = _FlockVersionDescription(this);
+     final versionText = frameworkVersion == kUnknownFrameworkVersion ? '' : ' $frameworkVersion';
+-    final flutterText =
+-        'Flutter$versionText • channel $channel • ${repositoryUrl ?? 'unknown source'}';
+-    final frameworkText =
+-        'Framework • revision $frameworkRevisionShort ($frameworkAge) • $frameworkCommitDate';
++    final String flutterText = flock.heading(versionText);
++    final String frameworkText = flock.frameworkText;
+     String engineText;
+     if (engineContentHash != null) {
+       engineText = 'Engine • hash $engineContentHash (revision $engineRevisionShort) ($engineAge)';
+diff --git a/packages/flutter_tools/test/general.shard/flock_version_test.dart b/packages/flutter_tools/test/general.shard/flock_version_test.dart
+new file mode 100644
+index 0000000000000000000000000000000000000000..26b553f81019162f6d22fdaa78ed2e097dc0a32e
+--- /dev/null
++++ b/packages/flutter_tools/test/general.shard/flock_version_test.dart
+@@ -0,0 +1,261 @@
++// Copyright 2026 The Flutter Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++import 'dart:convert';
++
++import 'package:file/memory.dart';
++import 'package:flutter_tools/src/base/logger.dart';
++import 'package:flutter_tools/src/base/platform.dart';
++import 'package:flutter_tools/src/base/process.dart';
++import 'package:flutter_tools/src/base/time.dart';
++import 'package:flutter_tools/src/git.dart';
++import 'package:flutter_tools/src/version.dart';
++
++import '../src/common.dart';
++import '../src/context.dart';
++import '../src/fake_process_manager.dart';
++
++void main() {
++  const root = '/flutter';
++  const date = '2026-10-01 12:00:00 +0000';
++  late FakeProcessManager processes;
++  late Git git;
++
++  FakeCommand log(String ref, String output, {bool findPatch = false, int exitCode = 0}) =>
++      FakeCommand(
++        command: [
++          'git',
++          '-c',
++          'log.showSignature=false',
++          'log',
++          ref,
++          '--first-parent',
++          '-n',
++          '1',
++          '--format=%H%x00%P%x00%ai%x00%s%x00%b',
++          if (findPatch) '--grep=^Patch-Filename: ',
++        ],
++        stdout: output,
++        exitCode: exitCode,
++      );
++
++  String commit(
++    String revision,
++    String parent, {
++    String subject = 'upstream',
++    bool patch = false,
++  }) =>
++      '$revision\x00$parent\x00$date\x00$subject\x00${patch ? 'Patch-Dir: patches\nPatch-Filename: fix.patch\n' : ''}';
++
++  FakeCommand ancestor(String base, {int exitCode = 0}) => FakeCommand(
++    command: ['git', 'merge-base', '--is-ancestor', base, 'flock-head'],
++    exitCode: exitCode,
++  );
++
++  FlockUpstream? determine() =>
++      FlockUpstream.determine(git: git, flutterRoot: root, revision: 'flock-head');
++
++  setUp(() {
++    processes = FakeProcessManager.empty();
++    git = Git(
++      currentPlatform: FakePlatform(),
++      runProcessWith: ProcessUtils(processManager: processes, logger: BufferLogger.test()),
++    );
++  });
++
++  tearDown(() => expect(processes, hasNoRemainingExpectations));
++
++  testWithoutContext(
++    'published history identifies base without private ref, past local commits',
++    () {
++      processes.addCommands([
++        log('flock-head', commit('patch2', 'patch1', patch: true), findPatch: true),
++        log('patch1', commit('patch1', 'base', patch: true)),
++        log('base', commit('base', 'older')),
++        ancestor('base'),
++      ]);
++      expect(determine()?.revision, 'base');
++    },
++  );
++
++  testWithoutContext('CI engine pin is not an upstream Flutter commit', () {
++    processes.addCommands([
++      log('flock-head', commit('patch', 'pin', patch: true), findPatch: true),
++      log('pin', commit('pin', 'base', subject: 'save engine version')),
++      log('base', commit('base', 'older')),
++      ancestor('base'),
++    ]);
++    final FlockUpstream? upstream = determine();
++    expect(upstream?.revision, 'base');
++    expect(upstream?.commitDate, date);
++  });
++
++  for (final enginePin in [false, true]) {
++    testWithoutContext('assembly ref fallback, engine pin: $enginePin', () {
++      processes.addCommands([
++        log('flock-head', '', findPatch: true),
++        FakeCommand(
++          command: const ['git', 'rev-parse', '--verify', 'refs/patches/upstream-head^{commit}'],
++          stdout: enginePin ? 'pin' : 'base',
++        ),
++        if (enginePin) log('pin', commit('pin', 'base', subject: 'save engine version')),
++        log('base', commit('base', 'older')),
++        ancestor('base'),
++      ]);
++      expect(determine()?.revision, 'base');
++    });
++  }
++
++  testWithoutContext('unrelated assembly ref is rejected', () {
++    processes.addCommands([
++      log('flock-head', '', findPatch: true),
++      const FakeCommand(
++        command: ['git', 'rev-parse', '--verify', 'refs/patches/upstream-head^{commit}'],
++        stdout: 'unrelated',
++      ),
++      log('unrelated', commit('unrelated', 'older')),
++      ancestor('unrelated', exitCode: 1),
++    ]);
++    expect(determine(), isNull);
++  });
++
++  testWithoutContext('missing shallow parent does not invent upstream information', () {
++    processes.addCommands([
++      log('flock-head', commit('patch', 'missing', patch: true), findPatch: true),
++      log('missing', '', exitCode: 128),
++    ]);
++    expect(determine(), isNull);
++  });
++
++  testWithoutContext('missing ref and metadata are safe', () {
++    processes.addCommands([
++      log('flock-head', '', findPatch: true),
++      const FakeCommand(
++        command: ['git', 'rev-parse', '--verify', 'refs/patches/upstream-head^{commit}'],
++        exitCode: 128,
++      ),
++    ]);
++    expect(determine(), isNull);
++  });
++
++  for (final (branch, tracking, refs, expectedChannel) in [
++    (
++      'feature/version',
++      'origin/feature/version',
++      'refs/heads/master\nrefs/remotes/origin/master\nrefs/remotes/origin/main',
++      'master',
++    ),
++    ('stable', '', '', 'stable'),
++    ('', '', 'refs/heads/master', 'master'),
++    ('feature/tracked', 'origin/beta', '', 'beta'),
++    ('feature/ambiguous', '', 'refs/heads/stable\nrefs/heads/master', 'unknown'),
++    ('feature/no-channel', '', 'refs/remotes/origin/feature/master', 'unknown'),
++    ('feature/remote-only', '', 'refs/remotes/origin/beta', 'beta'),
++  ]) {
++    testUsingContext('cached presentation reports upstream independently on branch "$branch"', () {
++      final fs = MemoryFileSystem.test();
++      fs.file('$root/.git').createSync(recursive: true); // Worktree support.
++      final manifest = <String, Object>{
++        'frameworkVersion': '3.51.0-0.0.pre-15',
++        'channel': branch == 'stable' ? 'stable' : kUserBranch,
++        'repositoryUrl': 'https://github.com/flutter/flutter.git',
++        'frameworkRevision': 'flock-head',
++        'frameworkCommitDate': '2026-11-01 12:00:00 +0000',
++        'engineRevision': 'base',
++        'engineBuildDate': '2026-10-01 12:00:00 +0000',
++        'dartSdkVersion': '3.15.0',
++        'devToolsVersion': '2.62.0',
++        'flutterVersion': '3.51.0-0.0.pre-15',
++      };
++      FlutterVersion.getVersionFile(fs, root)
++        ..createSync(recursive: true)
++        ..writeAsStringSync(jsonEncode(manifest));
++      final version = FlutterVersion(
++        flutterRoot: root,
++        fs: fs,
++        git: git,
++        platform: FakePlatform(),
++        clock: SystemClock.fixed(DateTime.utc(2026, 11, 3, 12)),
++      );
++      final Map<String, Object> before = version.toJson();
++      processes.addCommands([
++        log('flock-head', commit('patch', 'base', patch: true), findPatch: true),
++        log('base', commit('base', 'older')),
++        ancestor('base'),
++        FakeCommand(
++          command: const ['git', 'tag', '--points-at', 'base'],
++          stdout: branch == 'stable' ? '3.50.0' : '',
++        ),
++        if (branch != 'stable') ...[
++          const FakeCommand(
++            command: [
++              'git',
++              'for-each-ref',
++              '--sort=-v:refname',
++              '--count=1',
++              '--format=%(refname:short)',
++              'refs/tags/[0-9]*.*.*',
++            ],
++            stdout: '3.50.0',
++          ),
++          const FakeCommand(command: ['git', 'merge-base', 'base', '3.50.0'], stdout: 'tag-base'),
++          const FakeCommand(
++            command: ['git', 'rev-list', '--count', 'tag-base..base'],
++            stdout: '10',
++          ),
++        ],
++        FakeCommand(command: const ['git', 'symbolic-ref', '--short', 'HEAD'], stdout: branch),
++        if (branch != 'stable') ...[
++          FakeCommand(
++            command: const ['git', 'rev-parse', '--abbrev-ref', '--symbolic', '@{upstream}'],
++            stdout: tracking,
++            exitCode: tracking.isEmpty ? 128 : 0,
++          ),
++          if (tracking != 'origin/beta')
++            FakeCommand(
++              command: const [
++                'git',
++                'for-each-ref',
++                '--format=%(refname)',
++                '--contains',
++                'base',
++                'refs/heads/',
++                'refs/remotes/',
++              ],
++              stdout: refs,
++            ),
++        ],
++        const FakeCommand(
++          command: [
++            'git',
++            '-c',
++            'log.showSignature=false',
++            'log',
++            '-n',
++            '1',
++            '--pretty=format:%ar',
++          ],
++          stdout: '2 days ago',
++        ),
++      ]);
++      final text = version.toString();
++      expect(text.split('\n').first, endsWith('https://github.com/join-the-flock/flock.git'));
++      expect(version.toJson()['repositoryUrl'], 'https://github.com/flutter/flutter.git');
++      expect(
++        text,
++        startsWith(
++          'Flock (Flutter ${branch == 'stable' ? '3.50.0' : '3.50.1-0.0.pre-10'}) • channel $expectedChannel',
++        ),
++      );
++      if (branch != 'stable') {
++        expect(text, contains('branch ${branch.isEmpty ? 'detached' : branch}'));
++      }
++      expect(text, contains('Flock framework • revision flock-head (2 days ago) • 2026-11-01'));
++      expect(text, contains('Flutter upstream • revision base (1 months ago) • $date'));
++      expect(version.toJson(), before);
++      expect(version.toJson()['frameworkRevision'], 'flock-head');
++      expect(version.toJson()['frameworkVersion'], '3.51.0-0.0.pre-15');
++    });
++  }
++}
+diff --git a/packages/flutter_tools/test/general.shard/version_test.dart b/packages/flutter_tools/test/general.shard/version_test.dart
+index 5e695e7673e41f7fb976225d0b185ebdd5678208..d583674bca393d2a26c6267ae7308006c3371534 100644
+--- a/packages/flutter_tools/test/general.shard/version_test.dart
++++ b/packages/flutter_tools/test/general.shard/version_test.dart
+@@ -325,8 +325,9 @@ void main() {
+           expect(flutterVersion.frameworkVersion, '0.0.0-unknown');
+           expect(
+             flutterVersion.toString(),
+-            'Flutter • channel $channel • $flutterUpstreamUrl\n'
+-            'Framework • revision 1234abcd (1 second ago) • ${getChannelUpToDateVersion()}\n'
++            'Flock (Flutter) • channel $channel • https://github.com/join-the-flock/flock.git\n'
++            'Flock framework • revision 1234abcd (1 second ago) • ${getChannelUpToDateVersion()}\n'
++            'Flutter upstream • revision unknown\n'
+             'Engine • revision abcdefg (2 seconds ago) • ${getChannelUpToDateVersion()}\n'
+             'Tools • Dart 2.12.0 • DevTools 2.8.0',
+           );
+@@ -369,7 +370,7 @@ void main() {
+               command: <String>[
+                 'git',
+                 'fetch',
+-                'https://github.com/flutter/flutter.git',
++                'https://github.com/join-the-flock/flock.git',
+                 '--tags',
+                 '-f',
+               ],
+@@ -516,8 +517,9 @@ void main() {
+           expect(flutterVersion.frameworkVersion, '0.0.0-unknown');
+           expect(
+             flutterVersion.toString(),
+-            'Flutter • channel $channel • $flutterUpstreamUrl\n'
+-            'Framework • revision 1234abcd (1 second ago) • ${getChannelUpToDateVersion()}\n'
++            'Flock (Flutter) • channel $channel • https://github.com/join-the-flock/flock.git\n'
++            'Flock framework • revision 1234abcd (1 second ago) • ${getChannelUpToDateVersion()}\n'
++            'Flutter upstream • revision unknown\n'
+             'Engine • revision abcdefg (2 seconds ago) • ${getChannelUpToDateVersion()}\n'
+             'Tools • Dart 2.12.0 • DevTools 2.8.0',
+           );
+@@ -1647,7 +1649,13 @@ void main() {
+         stdout: 'master',
+       ),
+       const FakeCommand(
+-        command: <String>['git', 'fetch', 'https://github.com/flutter/flutter.git', '--tags', '-f'],
++        command: <String>[
++          'git',
++          'fetch',
++          'https://github.com/join-the-flock/flock.git',
++          '--tags',
++          '-f',
++        ],
+       ),
+       const FakeCommand(command: <String>['git', 'tag', '--points-at', 'HEAD']),
+       ...mockGitTagHistory(
