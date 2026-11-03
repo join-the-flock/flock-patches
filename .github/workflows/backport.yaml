@@ -1,0 +1,52 @@
+name: Backport labeled patches
+
+on:
+  pull_request_target:
+    branches: [master]
+    types: [closed, labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# Keep label additions and merge events for the same PR from racing.
+concurrency:
+  group: backport-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  backport:
+    if: >-
+      github.event.pull_request.merged == true &&
+      (
+        github.event.action == 'closed' ||
+        github.event.label.name == 'add-to-beta' ||
+        github.event.label.name == 'add-to-stable'
+      ) &&
+      (
+        contains(github.event.pull_request.labels.*.name, 'add-to-beta') ||
+        contains(github.event.pull_request.labels.*.name, 'add-to-stable')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Only use the trusted master branch, never the source PR's head.
+      - uses: actions/checkout@v6
+        with:
+          ref: master
+
+      - name: Open backport pull requests
+        uses: korthout/backport-action@v4
+        with:
+          label_pattern: '^add-to-(beta|stable)$'
+          auto_merge_enabled: false
+          experimental: '{"conflict_resolution": "draft_commit_conflicts"}'
+          pull_description: |-
+            Backport of #${pull_number} to `${target_branch}`.
+
+            Validate the patch collection against the matching Flutter channel
+            before merging. A clean cherry-pick of patch files does not verify
+            that those patches apply to Flutter.
+
+            If this is a draft with conflicts, resolve the conflicts and any
+            remaining cherry-picks before marking it ready for review.
