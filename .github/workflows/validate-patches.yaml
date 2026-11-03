@@ -46,8 +46,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      # Pin the Nest tools and local action to the same reviewed revision.
-      NEST_REVISION: ecc973fdb946c01080b86b969f49d1e01b148fd7
       FLUTTER_REF: ${{ github.base_ref || github.event.merge_group.base_ref }}
     steps:
       # assemble-flock expects Nest's tools/ at the workspace root.
@@ -55,7 +53,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: join-the-flock/nest
-          ref: ${{ env.NEST_REVISION }}
+          ref: main
           persist-credentials: false
 
       - name: Assemble the proposed patch collection
@@ -64,7 +62,6 @@ jobs:
           flutter_ref: ${{ env.FLUTTER_REF }}
           patches_repo: ${{ github.repository }}
           patches_ref: ${{ github.sha }}
-          fetch_depth: 0
           token: ${{ github.token }}
 
       - name: Verify the proposed revision and completed import
@@ -82,7 +79,11 @@ jobs:
         run: |
           mkdir -p patch-application-report
           {
-            printf 'Nest revision: %s\n' "$NEST_REVISION"
+            if [ -e .git ] && git rev-parse --verify HEAD >/dev/null 2>&1; then
+              git log -1 --format='Nest revision: %H'
+            else
+              printf 'Nest revision: unavailable (checkout failed)\n'
+            fi
             printf 'Patch repository: %s\n' "$GITHUB_REPOSITORY"
             printf 'Requested patch revision: %s\n' "$GITHUB_SHA"
             printf 'Flutter ref: %s\n' "$FLUTTER_REF"

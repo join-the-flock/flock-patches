@@ -45,8 +45,9 @@ alongside infrastructure changes.
 
 - PRs and merge-queue checks for `master`, `beta`, and `stable` run the
   `application` job, displayed as **Patch application**, after `lightweight` passes.
-- The job checks out a pinned Nest revision at the workspace root and reuses its
-  `assemble-flock` action. Update the pin deliberately when adopting Nest changes.
+- The job checks out Nest's `main` branch at the workspace root and reuses that
+  checkout's `assemble-flock` action and tools. Each run follows the current Nest
+  assembly behavior and records the resolved Nest commit.
 - The PR's target branch selects the matching Flutter branch. The patch collection
   comes from the exact PR or merge-queue merge commit being checked.
 - Assembly uses the complete patch collection in `.patches` order, including
