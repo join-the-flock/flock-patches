@@ -4,6 +4,14 @@ import 'dart:io';
 
 import 'package:path/path.dart' as path;
 
+/// Checks a repository's patch collection and reports validation errors.
+///
+/// Run `dart run bin/validate.dart` from this repository's `validation/` directory.
+///
+/// By default, validates the patch collection in the repository root. Pass an
+/// optional repository path to validate a different collection, e.g.
+/// `dart run bin/validate.dart /path/to/patches`. Relative paths are resolved from
+/// the current working directory. Validation errors produce a nonzero exit code.
 Future<void> main(List<String> arguments) async {
   if (arguments.length > 1 ||
       arguments.any((argument) => argument.startsWith('-'))) {
@@ -29,7 +37,9 @@ Future<void> main(List<String> arguments) async {
   }
 }
 
-/// Validates Nest patch collections without fetching or modifying Flutter.
+/// Checks the structure of a patch collection that Nest imports into Flutter.
+///
+/// Validates the `.patches` manifest, patch mail metadata, and Git diff syntax.
 final class _PatchValidator {
   _PatchValidator()
     : _environment = Map.of(Platform.environment)
@@ -44,7 +54,9 @@ final class _PatchValidator {
 
   final Map<String, String> _environment;
 
-  /// Returns all validation errors; the collection is never modified.
+  /// Reports manifest and patch-format errors in [collection].
+  ///
+  /// Returns an empty list when the collection passes all checks.
   Future<List<String>> validate(Directory collection) async {
     final Directory root;
     try {

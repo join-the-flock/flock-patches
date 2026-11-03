@@ -14,6 +14,8 @@ alongside infrastructure changes.
   [FBH code formatting](https://github.com/Flutter-Bounty-Hunters/fbh_dev_practices/blob/main/skills/shared-code-skills/dart_code_formatting.md).
   Test naming, groups, and helper organization follow
   [FBH Dart and Flutter tests](https://github.com/Flutter-Bounty-Hunters/fbh_dev_practices/blob/main/skills/shared-code-skills/dart_and_flutter_tests.md).
+- Test and group names describe behavior demonstrated by their setup and assertions.
+- Dart Docs explain the code's intent and provide relevant domain context.
 - CI uses the standalone stable Dart SDK and the checked-in dependency lockfile.
 - Run Dart commands from `validation/`. The validator defaults to the parent
   repository's patch collection and accepts an explicit repository path.
