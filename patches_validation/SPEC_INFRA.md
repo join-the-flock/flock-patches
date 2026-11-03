@@ -41,8 +41,22 @@ alongside infrastructure changes.
 - Any validation error fails the job. Future heavyweight jobs must depend on
   `lightweight`, directly or transitively, and must not bypass its success gate.
 
-Full-channel patch application and SDK verification are not implemented yet.
-Lightweight success alone does not establish Flutter compatibility.
+## Patch application
+
+- PRs and merge-queue checks for `master`, `beta`, and `stable` run the
+  `application` job, displayed as **Patch application**, after `lightweight` passes.
+- The job checks out a pinned Nest revision at the workspace root and reuses its
+  `assemble-flock` action. Update the pin deliberately when adopting Nest changes.
+- The PR's target branch selects the matching Flutter branch. The patch collection
+  comes from the exact PR or merge-queue merge commit being checked.
+- Assembly uses the complete patch collection in `.patches` order, including
+  Nest's engine pin, patch metadata, and three-way import behavior.
+- Success requires the requested patch revision, a completed import, and a clean
+  assembled checkout. Any patch conflict or failed assembly fails the job.
+- Reports identify the Nest, patch, Flutter base, and assembled revisions and
+  preserve import diagnostics and the failing patch mail on failure.
+- The job uses read-only repository permissions. SDK/demo verification and
+  publication remain separate stages; this job establishes patch applicability.
 
 ## Backport pull requests
 
