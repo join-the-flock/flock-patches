@@ -1,12 +1,12 @@
-From 31cb00f26a8d60782c30ae5855a2b4489dd5c155 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Jesse Ezell <jesse.ezell@timu.com>
 Date: Sun, 25 May 2025 14:48:07 -0700
-Subject: [PATCH] automatically create nest prs from merged pull requests
+Subject: automatically create nest prs from merged pull requests
 
----
+
 diff --git a/.github/workflows/create-patch-pr.yaml b/.github/workflows/create-patch-pr.yaml
 new file mode 100644
-index 0000000000..45f2372e2a
+index 0000000000000000000000000000000000000000..350e9594cde80735a8534e7e1d0e146da1abfbb5
 --- /dev/null
 +++ b/.github/workflows/create-patch-pr.yaml
 @@ -0,0 +1,74 @@
@@ -84,4 +84,3 @@ index 0000000000..45f2372e2a
 +            --head "${BRANCH_NAME}" \
 +            --title "Add patch for source PR #${{ github.event.pull_request.number }}" \
 +            --body "Automated patch generated from ${{ github.repository }} PR #${{ github.event.pull_request.number }}."
-
