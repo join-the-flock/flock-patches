@@ -18,14 +18,26 @@ jobs:
     name: Lightweight patch validation
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: validation
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - name: Resolve tooling dependencies
+        run: dart pub get --enforce-lockfile
+      - name: Check Dart formatting
+        run: dart format --output=none --set-exit-if-changed lib tools test
+      - name: Analyze Dart tooling
+        run: dart analyze --fatal-infos
       - name: Test the validator
-        run: python3 -m unittest discover -s tests -v
+        run: dart test
       - name: Validate the complete patch collection
-        run: python3 tools/validate_patches.py
+        run: dart run tools/validate_patches.dart
 
   # Future full-channel application jobs belong here, with needs: lightweight.
   # GitHub then skips those jobs if lightweight validation fails.

@@ -1,5 +1,2 @@
 # Android Studio
 .idea/
-
-# Python validation tools
-__pycache__/
