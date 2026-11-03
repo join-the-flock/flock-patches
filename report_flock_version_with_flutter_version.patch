@@ -19,10 +19,10 @@ Tools • Dart 3.15.0 (build 3.15.0-101.0.dev) • DevTools 2.62.0-dev.0
 
 diff --git a/packages/flutter_tools/lib/src/flock_version.dart b/packages/flutter_tools/lib/src/flock_version.dart
 new file mode 100644
-index 0000000000000000000000000000000000000000..e3f3f3f2a06ae39f6a277a4d50debfcbabbe9dde
+index 0000000000000000000000000000000000000000..760384407c8b8d42fdd5dd5a35cd70923793128c
 --- /dev/null
 +++ b/packages/flutter_tools/lib/src/flock_version.dart
-@@ -0,0 +1,200 @@
+@@ -0,0 +1,199 @@
 +// Copyright 2026 The Flutter Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -56,11 +56,10 @@ index 0000000000000000000000000000000000000000..e3f3f3f2a06ae39f6a277a4d50debfcb
 +
 +  String _upstreamVersionText(FlockUpstream upstream) {
 +    final String version = GitTagVersion.determine(
-+      _version._platform ?? globals.platform,
++      globals.platform,
 +      git: _version._git,
 +      gitRef: upstream.revision,
 +      workingDirectory: _version.flutterRoot,
-+      logger: _version._logger,
 +    ).frameworkVersionFor(upstream.revision);
 +    return version == kUnknownFrameworkVersion ? '' : ' $version';
 +  }
@@ -261,10 +260,10 @@ index aec57783b09251d8b490ed76b1d89e8d4785d7ae..278c420070b9ed7fe87d6c8c4900c362
        engineText = 'Engine • hash $engineContentHash (revision $engineRevisionShort) ($engineAge)';
 diff --git a/packages/flutter_tools/test/general.shard/flock_version_test.dart b/packages/flutter_tools/test/general.shard/flock_version_test.dart
 new file mode 100644
-index 0000000000000000000000000000000000000000..26b553f81019162f6d22fdaa78ed2e097dc0a32e
+index 0000000000000000000000000000000000000000..6cfaeeb52c8936504b0f33b26914be368598e15a
 --- /dev/null
 +++ b/packages/flutter_tools/test/general.shard/flock_version_test.dart
-@@ -0,0 +1,261 @@
+@@ -0,0 +1,260 @@
 +// Copyright 2026 The Flutter Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -442,7 +441,6 @@ index 0000000000000000000000000000000000000000..26b553f81019162f6d22fdaa78ed2e09
 +        flutterRoot: root,
 +        fs: fs,
 +        git: git,
-+        platform: FakePlatform(),
 +        clock: SystemClock.fixed(DateTime.utc(2026, 11, 3, 12)),
 +      );
 +      final Map<String, Object> before = version.toJson();

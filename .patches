@@ -1,10 +1,5 @@
 added_gclient_files_to_gitignore_to_support_flock_and_other_flutter.patch
 add_slim_gclients.patch
 support_upgrading_flock.patch
-<<<<<<< HEAD
-create-patch-pr.patch
-=======
-fix_ios_builds.patch
 create-patch-pr.patch
 report_flock_version_with_flutter_version.patch
->>>>>>> 4960aa8 ([Patch][Flock-Infra] - Report Flock version when running 'fvm flutter --version' (#11))
