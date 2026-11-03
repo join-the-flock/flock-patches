@@ -1,0 +1,121 @@
+name: Validate patches
+
+on:
+  pull_request:
+    branches: [master, beta, stable]
+  merge_group:
+    branches: [master, beta, stable]
+    types: [checks_requested]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: patch-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lightweight:
+    name: Lightweight patch validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: patches_validation
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - name: Resolve tooling dependencies
+        run: dart pub get --enforce-lockfile
+      - name: Check Dart formatting
+        run: dart format --output=none --set-exit-if-changed bin test
+      - name: Analyze Dart tooling
+        run: dart analyze --fatal-infos
+      - name: Test the validator
+        run: dart test
+      - name: Validate the complete patch collection
+        run: dart run bin/validate.dart
+
+  application:
+    name: Patch application
+    needs: lightweight
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FLUTTER_REF: ${{ github.base_ref || github.event.merge_group.base_ref }}
+    steps:
+      # assemble-flock expects Nest's tools/ at the workspace root.
+      - name: Check out Nest assembly tooling
+        uses: actions/checkout@v6
+        with:
+          repository: join-the-flock/nest
+          ref: main
+          persist-credentials: false
+
+      - name: Assemble the proposed patch collection
+        uses: ./.github/actions/assemble-flock
+        with:
+          flutter_ref: ${{ env.FLUTTER_REF }}
+          patches_repo: ${{ github.repository }}
+          patches_ref: ${{ github.sha }}
+          token: ${{ github.token }}
+
+      - name: Verify the proposed revision and completed import
+        shell: bash
+        run: |
+          test "$(git -C patches rev-parse HEAD)" = "$GITHUB_SHA"
+          cd flock
+          git diff --exit-code HEAD --
+          test -z "$(git status --porcelain)"
+          test ! -d "$(git rev-parse --git-path rebase-apply)"
+
+      - name: Record assembly revisions and diagnostics
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p patch-application-report
+          {
+            if [ -e .git ] && git rev-parse --verify HEAD >/dev/null 2>&1; then
+              git log -1 --format='Nest revision: %H'
+            else
+              printf 'Nest revision: unavailable (checkout failed)\n'
+            fi
+            printf 'Patch repository: %s\n' "$GITHUB_REPOSITORY"
+            printf 'Requested patch revision: %s\n' "$GITHUB_SHA"
+            printf 'Flutter ref: %s\n' "$FLUTTER_REF"
+            if [ -e patches/.git ] && git -C patches rev-parse --verify HEAD >/dev/null 2>&1; then
+              git -C patches log -1 --format='Checked patch revision: %H'
+            fi
+            if [ -e flock/.git ] && git -C flock rev-parse --verify HEAD >/dev/null 2>&1; then
+              channel="${FLUTTER_REF#refs/heads/}"
+              git -C flock log -1 --format='Flutter base revision: %H' \
+                "refs/remotes/origin/$channel" || true
+              git -C flock log -1 --format='Assembled revision: %H'
+              git -C flock status --porcelain
+              git -C flock diff --name-only --diff-filter=U
+            fi
+          } > patch-application-report/revisions.txt
+          if [ -d flock/.git/rebase-apply ]; then
+            git -C flock am --show-current-patch=raw \
+              > patch-application-report/failed-patch.txt || true
+          fi
+          {
+            printf '```text\n'
+            cat patch-application-report/revisions.txt
+            printf '```\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload application report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: patch-application-report
+          path: |
+            patch-application-report/
+            patch_fail.log
+          if-no-files-found: warn
+          retention-days: 7
