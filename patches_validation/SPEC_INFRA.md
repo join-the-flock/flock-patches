@@ -6,7 +6,8 @@ alongside infrastructure changes.
 ## Tooling
 
 - Infrastructure tools, tests, package configuration, and this specification live
-  in `validation/`. GitHub workflow entrypoints remain in `.github/workflows/`.
+  in `patches_validation/`. GitHub workflow entrypoints remain in `.github/workflows/`.
+- The Dart package name matches its containing directory: `patches_validation`.
 - The validation command and its private implementation live in `bin/validate.dart`.
   Tests in `test/` exercise its command-line behavior through subprocesses.
 - Repository-owned tools and tests are written in Dart wherever feasible.
@@ -17,7 +18,7 @@ alongside infrastructure changes.
 - Test and group names describe behavior demonstrated by their setup and assertions.
 - Dart Docs explain the code's intent and provide relevant domain context.
 - CI uses the standalone stable Dart SDK and the checked-in dependency lockfile.
-- Run Dart commands from `validation/`. The validator defaults to the parent
+- Run Dart commands from `patches_validation/`. The validator defaults to the parent
   repository's patch collection and accepts an explicit repository path.
 
 ## Lightweight patch validation

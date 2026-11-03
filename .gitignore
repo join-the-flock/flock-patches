@@ -2,5 +2,5 @@
 .idea/
 
 # Dart validation tools
-/validation/.dart_tool/
-/validation/build/
+/patches_validation/.dart_tool/
+/patches_validation/build/

@@ -6,7 +6,7 @@ import 'package:path/path.dart' as path;
 
 /// Checks a repository's patch collection and reports validation errors.
 ///
-/// Run `dart run bin/validate.dart` from this repository's `validation/` directory.
+/// Run `dart run bin/validate.dart` from this repository's `patches_validation/` directory.
 ///
 /// By default, validates the patch collection in the repository root. Pass an
 /// optional repository path to validate a different collection, e.g.

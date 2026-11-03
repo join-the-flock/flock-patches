@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 5
     defaults:
       run:
-        working-directory: validation
+        working-directory: patches_validation
     steps:
       - uses: actions/checkout@v6
         with:

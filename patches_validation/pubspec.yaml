@@ -1,4 +1,4 @@
-name: flock_patches_infra
+name: patches_validation
 description: Infrastructure tools and validation for Flock's patch collections.
 publish_to: none
 
