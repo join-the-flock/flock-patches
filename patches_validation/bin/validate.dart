@@ -4,11 +4,11 @@ import 'dart:io';
 
 import 'package:path/path.dart' as path;
 
-/// Checks a repository's patch collection and reports validation errors.
+/// Checks all three channel patch collections and reports validation errors.
 ///
 /// Run `dart run bin/validate.dart` from this repository's `patches_validation/` directory.
 ///
-/// By default, validates the patch collection in the repository root. Pass an
+/// By default, validates the channel manifests and patches in the repository root. Pass an
 /// optional repository path to validate a different collection, e.g.
 /// `dart run bin/validate.dart /path/to/patches`. Relative paths are resolved from
 /// the current working directory. Validation errors produce a nonzero exit code.
@@ -27,7 +27,9 @@ Future<void> main(List<String> arguments) async {
       : Directory(arguments.single);
   final errors = await _PatchValidator().validate(root);
   if (errors.isEmpty) {
-    stdout.writeln('Patch manifest, mail metadata, and diff syntax are valid.');
+    stdout.writeln(
+      'Channel manifests, patch variants, mail metadata, and diff syntax are valid.',
+    );
   } else {
     for (final error in errors) {
       stderr.writeln(error);
@@ -39,7 +41,7 @@ Future<void> main(List<String> arguments) async {
 
 /// Checks the structure of a patch collection that Nest imports into Flutter.
 ///
-/// Validates the `.patches` manifest, patch mail metadata, and Git diff syntax.
+/// Validates channel manifests, patch variants, mail metadata, and Git diff syntax.
 final class _PatchValidator {
   _PatchValidator()
     : _environment = Map.of(Platform.environment)
@@ -64,60 +66,20 @@ final class _PatchValidator {
     } on FileSystemException catch (error) {
       return ['cannot read patch collection: $error'];
     }
-    final manifest = File(path.join(root.path, '.patches'));
-    if (FileSystemEntity.typeSync(manifest.path, followLinks: false) !=
-        FileSystemEntityType.file) {
-      return ['.patches must be a regular file'];
-    }
-    final List<String> entries;
-    try {
-      entries = const LineSplitter().convert(manifest.readAsStringSync());
-    } on FileSystemException catch (error) {
-      return ['cannot read .patches: $error'];
-    } on FormatException catch (error) {
-      return ['cannot read .patches: $error'];
-    }
-    if (entries.isEmpty) {
-      return ['.patches must list at least one patch'];
-    }
-
     final errors = <String>[];
     final listed = <String>{};
-    final patches = <File>[];
-    for (var index = 0; index < entries.length; index++) {
-      final entry = entries[index];
-      final label = '.patches:${index + 1}';
-      if (!_isSafeRelativePath(entry) || !entry.endsWith('.patch')) {
-        errors.add(
-          '$label: expected a safe relative .patch filename, got ${jsonEncode(entry)}',
-        );
-        continue;
-      }
-      if (!listed.add(entry)) {
-        errors.add('$label: duplicate entry ${jsonEncode(entry)}');
-        continue;
-      }
-      var currentPath = root.path;
-      var hasSymlink = false;
-      for (final part in path.posix.split(entry)) {
-        currentPath = path.join(currentPath, part);
-        if (FileSystemEntity.typeSync(currentPath, followLinks: false) ==
-            FileSystemEntityType.link) {
-          errors.add(
-            '$label: patch paths cannot contain symlinks: ${jsonEncode(entry)}',
-          );
-          hasSymlink = true;
-          break;
-        }
-      }
-      if (!hasSymlink) {
-        if (FileSystemEntity.typeSync(currentPath, followLinks: false) !=
-            FileSystemEntityType.file) {
-          errors.add('$label: missing patch ${jsonEncode(entry)}');
-        } else {
-          patches.add(File(currentPath));
-        }
-      }
+    final patches = <String, File>{};
+    for (final channel in ['master', 'beta', 'stable']) {
+      errors.addAll(
+        _validateManifest(root, '.patches-$channel', listed, patches),
+      );
+    }
+    if (FileSystemEntity.typeSync(
+          path.join(root.path, '.patches'),
+          followLinks: false,
+        ) !=
+        FileSystemEntityType.notFound) {
+      errors.add('replace .patches with the three channel manifests');
     }
 
     for (final entity in root.listSync(recursive: true, followLinks: false)) {
@@ -126,7 +88,7 @@ final class _PatchValidator {
       if (!parts.contains('.git') &&
           relative.endsWith('.patch') &&
           !listed.contains(relative)) {
-        errors.add('$relative: patch is not listed in .patches');
+        errors.add('$relative: patch is not listed in any channel manifest');
       }
     }
 
@@ -134,7 +96,7 @@ final class _PatchValidator {
       'flock-patch-validation-',
     );
     try {
-      for (final file in patches) {
+      for (final file in patches.values) {
         final name = path
             .split(path.relative(file.path, from: root.path))
             .join('/');
@@ -155,6 +117,89 @@ final class _PatchValidator {
       }
     } finally {
       temporary.deleteSync(recursive: true);
+    }
+    return errors;
+  }
+
+  List<String> _validateManifest(
+    Directory root,
+    String manifestName,
+    Set<String> listed,
+    Map<String, File> patches,
+  ) {
+    final manifest = File(path.join(root.path, manifestName));
+    if (FileSystemEntity.typeSync(manifest.path, followLinks: false) !=
+        FileSystemEntityType.file) {
+      return ['$manifestName must be a regular file'];
+    }
+    final List<String> entries;
+    try {
+      entries = const LineSplitter().convert(manifest.readAsStringSync());
+    } on FileSystemException catch (error) {
+      return ['cannot read $manifestName: $error'];
+    } on FormatException catch (error) {
+      return ['cannot read $manifestName: $error'];
+    }
+    if (entries.isEmpty) {
+      return ['$manifestName must list at least one patch'];
+    }
+
+    final errors = <String>[];
+    final selected = <String>{};
+    final identities = <String, String>{};
+    for (var index = 0; index < entries.length; index++) {
+      final entry = entries[index];
+      final label = '$manifestName:${index + 1}';
+      if (!_isSafeRelativePath(entry) || !entry.endsWith('.patch')) {
+        errors.add(
+          '$label: expected a safe relative .patch filename, got ${jsonEncode(entry)}',
+        );
+        continue;
+      }
+      if (entry.contains('/')) {
+        errors.add('$label: patch files must live in the repository root');
+        continue;
+      }
+      listed.add(entry);
+      if (!selected.add(entry)) {
+        errors.add('$label: duplicate entry ${jsonEncode(entry)}');
+        continue;
+      }
+      final name = entry.substring(0, entry.length - '.patch'.length);
+      final adaptation = RegExp(r'_(\d{4}-\d{1,2}-\d{1,2})$').firstMatch(name);
+      final identity = adaptation == null
+          ? name
+          : name.substring(0, adaptation.start);
+      if (identity.isEmpty) {
+        errors.add('$label: patch filename must include a change name');
+      }
+      if (adaptation != null) {
+        final dateText = adaptation.group(1)!;
+        final date = DateTime.tryParse(dateText);
+        if (date == null ||
+            date.toIso8601String().substring(0, 10) != dateText) {
+          errors.add('$label: invalid adaptation date $dateText');
+        }
+      }
+      final previous = identities[identity];
+      if (previous != null) {
+        errors.add(
+          '$label: multiple variants of $identity: $previous and $entry',
+        );
+      } else {
+        identities[identity] = entry;
+      }
+      final file = File(path.join(root.path, entry));
+      final type = FileSystemEntity.typeSync(file.path, followLinks: false);
+      if (type == FileSystemEntityType.link) {
+        errors.add(
+          '$label: patch paths cannot contain symlinks: ${jsonEncode(entry)}',
+        );
+      } else if (type != FileSystemEntityType.file) {
+        errors.add('$label: missing patch ${jsonEncode(entry)}');
+      } else {
+        patches[entry] = file;
+      }
     }
     return errors;
   }

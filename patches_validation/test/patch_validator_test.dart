@@ -12,8 +12,12 @@ void main() {
 
     setUp(() {
       root = Directory.systemTemp.createTempSync('flock-patch-tests-');
-      manifest = File(path.join(root.path, '.patches'))
+      manifest = File(path.join(root.path, '.patches-master'))
         ..writeAsStringSync('example.patch');
+      for (final channel in ['beta', 'stable']) {
+        File(path.join(root.path, '.patches-$channel'))
+            .writeAsStringSync('example.patch');
+      }
       patch = File(path.join(root.path, 'example.patch'))
         ..writeAsStringSync(_validPatch);
     });
@@ -37,21 +41,46 @@ void main() {
       );
     });
 
-    group('Patch manifest >', () {
-      test('accepts a listed patch in a subdirectory', () async {
+    group('Channel manifests >', () {
+      test('rejects patch files in subdirectories', () async {
         final nested = Directory(path.join(root.path, 'nested'))..createSync();
-        patch.renameSync(path.join(nested.path, 'example.patch'));
+        File(path.join(nested.path, 'example.patch'))
+            .writeAsStringSync(_validPatch);
         manifest.writeAsStringSync('nested/example.patch\n');
-        await _expectValidationSuccess(root);
+        await _expectValidationFailure(
+          root,
+          'must live in the repository root',
+        );
+      });
+
+      test('requires a manifest for every channel', () async {
+        for (final channel in ['master', 'beta', 'stable']) {
+          final selected = File(path.join(root.path, '.patches-$channel'));
+          selected.deleteSync();
+          await _expectValidationFailure(
+            root,
+            '.patches-$channel must be a regular file',
+          );
+          selected.writeAsStringSync('example.patch');
+        }
+      });
+
+      test('rejects the legacy manifest beside channel manifests', () async {
+        File(path.join(root.path, '.patches'))
+            .writeAsStringSync('example.patch');
+        await _expectValidationFailure(root, 'replace .patches');
       });
 
       test('rejects a missing, empty, or non-UTF-8 manifest', () async {
         manifest.deleteSync();
-        await _expectValidationFailure(root, '.patches must be a regular file');
+        await _expectValidationFailure(
+          root,
+          '.patches-master must be a regular file',
+        );
         manifest.writeAsStringSync('');
         await _expectValidationFailure(root, 'must list at least one patch');
         manifest.writeAsBytesSync([255]);
-        await _expectValidationFailure(root, 'cannot read .patches');
+        await _expectValidationFailure(root, 'cannot read .patches-master');
       });
 
       test(
@@ -96,19 +125,149 @@ void main() {
         }
       });
 
-      test('rejects symbolic links used as the manifest, a patch file, or a patch directory', () async {
-        patch.deleteSync();
-        Link(patch.path)
-            .createSync(path.join(root.parent.path, 'outside.patch'));
-        await _expectValidationFailure(root, 'cannot contain symlinks');
-        Link(patch.path).deleteSync();
-        patch.writeAsStringSync(_validPatch);
-        Link(path.join(root.path, 'linked')).createSync(root.path);
-        manifest.writeAsStringSync('linked/example.patch');
-        await _expectValidationFailure(root, 'cannot contain symlinks');
-        manifest.deleteSync();
-        Link(manifest.path).createSync(patch.path);
-        await _expectValidationFailure(root, '.patches must be a regular file');
+      test(
+        'rejects symbolic link manifests and patches, and directory entries',
+        () async {
+          patch.deleteSync();
+          Link(patch.path)
+              .createSync(path.join(root.parent.path, 'outside.patch'));
+          await _expectValidationFailure(root, 'cannot contain symlinks');
+          Link(patch.path).deleteSync();
+          patch.writeAsStringSync(_validPatch);
+          Link(path.join(root.path, 'linked')).createSync(root.path);
+          manifest.writeAsStringSync('linked/example.patch');
+          await _expectValidationFailure(
+            root,
+            'must live in the repository root',
+          );
+          manifest.deleteSync();
+          Link(manifest.path).createSync(patch.path);
+          await _expectValidationFailure(
+            root,
+            '.patches-master must be a regular file',
+          );
+        },
+      );
+    });
+
+    group('Patch variants >', () {
+      test(
+        'accepts a shared baseline and channel-specific dated adaptations',
+        () async {
+          for (final (channel, name) in [
+            ('master', 'example_2026-09-08.patch'),
+            ('beta', 'example_2026-05-01.patch'),
+          ]) {
+            File(path.join(root.path, name)).writeAsStringSync(_validPatch);
+            File(path.join(root.path, '.patches-$channel'))
+                .writeAsStringSync(name);
+          }
+          await _expectValidationSuccess(root);
+        },
+      );
+
+      test('accepts patches selected by only one channel', () async {
+        final extra = File(path.join(root.path, 'master_only.patch'))
+          ..writeAsStringSync(_validPatch);
+        manifest.writeAsStringSync(
+          'example.patch\n${path.basename(extra.path)}',
+        );
+        await _expectValidationSuccess(root);
+      });
+
+      test('rejects a baseline and an adaptation of the same change in one channel', () async {
+        File(path.join(root.path, 'example_2026-09-08.patch'))
+            .writeAsStringSync(_validPatch);
+        manifest.writeAsStringSync('example.patch\nexample_2026-09-08.patch');
+        await _expectValidationFailure(
+          root,
+          '.patches-master:2: multiple variants of example',
+        );
+      });
+
+      test(
+        'rejects two dated adaptations of the same change in one channel',
+        () async {
+          for (final date in ['2026-05-01', '2026-09-08']) {
+            File(path.join(root.path, 'example_$date.patch'))
+                .writeAsStringSync(_validPatch);
+          }
+          manifest.writeAsStringSync(
+            'example_2026-05-01.patch\nexample_2026-09-08.patch',
+          );
+          await _expectValidationFailure(root, 'multiple variants of example');
+        },
+      );
+
+      test(
+        'accepts leap-day dates and rejects impossible adaptation dates',
+        () async {
+          for (final (date, valid) in [
+            ('2024-02-29', true),
+            ('2026-02-29', false),
+            ('2026-13-01', false),
+            ('2026-04-31', false),
+            ('2026-9-8', false),
+          ]) {
+            final adaptation = File(path.join(root.path, 'example_$date.patch'))
+              ..writeAsStringSync(_validPatch);
+            manifest.writeAsStringSync(path.basename(adaptation.path));
+            if (valid) {
+              await _expectValidationSuccess(root);
+            } else {
+              await _expectValidationFailure(
+                root,
+                'invalid adaptation date $date',
+              );
+            }
+            adaptation.deleteSync();
+          }
+        },
+      );
+
+      test('validates a patch selected by only beta', () async {
+        File(path.join(root.path, 'beta_only.patch'))
+            .writeAsStringSync('invalid mail');
+        File(path.join(root.path, '.patches-beta'))
+            .writeAsStringSync('example.patch\nbeta_only.patch');
+        await _expectValidationFailure(
+          root,
+          'beta_only.patch: expected a Git format-patch mail envelope',
+        );
+      });
+
+      test(
+        'accepts a dated adaptation after its baseline is retired',
+        () async {
+          patch.renameSync(path.join(root.path, 'example_2026-09-08.patch'));
+          for (final channel in ['master', 'beta', 'stable']) {
+            File(path.join(root.path, '.patches-$channel'))
+                .writeAsStringSync('example_2026-09-08.patch');
+          }
+          await _expectValidationSuccess(root);
+        },
+      );
+
+      test('reports an invalid shared patch once', () async {
+        patch.writeAsStringSync('invalid mail');
+        final result = await _runValidator(root);
+        expect(result.exitCode, 1);
+        expect(
+          'expected a Git format-patch mail envelope'.allMatches(
+            result.stderr as String,
+          ),
+          hasLength(1),
+        );
+      });
+
+      test('reports errors in multiple channel manifests together', () async {
+        manifest.writeAsStringSync('missing_master.patch');
+        File(path.join(root.path, '.patches-beta'))
+            .writeAsStringSync('missing_beta.patch');
+        final result = await _runValidator(root);
+        expect(result.exitCode, 1);
+        expect(result.stderr, contains('.patches-master:1: missing patch'));
+        expect(result.stderr, contains('.patches-beta:1: missing patch'));
       });
     });
 
@@ -264,7 +423,9 @@ Future<void> _expectValidationSuccess(
   expect(result.exitCode, 0, reason: result.stderr as String);
   expect(
     result.stdout,
-    contains('Patch manifest, mail metadata, and diff syntax are valid.'),
+    contains(
+      'Channel manifests, patch variants, mail metadata, and diff syntax are valid.',
+    ),
   );
 }
 

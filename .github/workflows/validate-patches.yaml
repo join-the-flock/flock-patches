@@ -2,9 +2,9 @@ name: Validate patches
 
 on:
   pull_request:
-    branches: [master, beta, stable]
+    branches: [main]
   merge_group:
-    branches: [master, beta, stable]
+    branches: [main]
     types: [checks_requested]
 
 permissions:
@@ -37,16 +37,21 @@ jobs:
         run: dart analyze --fatal-infos
       - name: Test the validator
         run: dart test
-      - name: Validate the complete patch collection
+      - name: Validate all channel patch collections
         run: dart run bin/validate.dart
 
   application:
-    name: Patch application
+    name: Patch application (${{ matrix.channel }})
     needs: lightweight
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: [master, beta, stable]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      FLUTTER_REF: ${{ github.base_ref || github.event.merge_group.base_ref }}
+      FLUTTER_REF: ${{ matrix.channel }}
+      PATCH_MANIFEST: .patches-${{ matrix.channel }}
     steps:
       # assemble-flock expects Nest's tools/ at the workspace root.
       - name: Check out Nest assembly tooling
@@ -62,12 +67,14 @@ jobs:
           flutter_ref: ${{ env.FLUTTER_REF }}
           patches_repo: ${{ github.repository }}
           patches_ref: ${{ github.sha }}
+          patches_manifest: ${{ env.PATCH_MANIFEST }}
           token: ${{ github.token }}
 
       - name: Verify the proposed revision and completed import
         shell: bash
         run: |
           test "$(git -C patches rev-parse HEAD)" = "$GITHUB_SHA"
+          cmp "patches/$PATCH_MANIFEST" patches/.patches
           cd flock
           git diff --exit-code HEAD --
           test -z "$(git status --porcelain)"
@@ -87,6 +94,7 @@ jobs:
             printf 'Patch repository: %s\n' "$GITHUB_REPOSITORY"
             printf 'Requested patch revision: %s\n' "$GITHUB_SHA"
             printf 'Flutter ref: %s\n' "$FLUTTER_REF"
+            printf 'Patch manifest: %s\n' "$PATCH_MANIFEST"
             if [ -e patches/.git ] && git -C patches rev-parse --verify HEAD >/dev/null 2>&1; then
               git -C patches log -1 --format='Checked patch revision: %H'
             fi
@@ -99,6 +107,9 @@ jobs:
               git -C flock diff --name-only --diff-filter=U
             fi
           } > patch-application-report/revisions.txt
+          if [ -f "patches/$PATCH_MANIFEST" ]; then
+            cp "patches/$PATCH_MANIFEST" patch-application-report/manifest.txt
+          fi
           if [ -d flock/.git/rebase-apply ]; then
             git -C flock am --show-current-patch=raw \
               > patch-application-report/failed-patch.txt || true
@@ -113,7 +124,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: patch-application-report
+          name: patch-application-report-${{ matrix.channel }}
           path: |
             patch-application-report/
             patch_fail.log
