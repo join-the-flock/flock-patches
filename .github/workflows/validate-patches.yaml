@@ -53,7 +53,7 @@ jobs:
       FLUTTER_REF: ${{ matrix.channel }}
       PATCH_MANIFEST: .patches-${{ matrix.channel }}
     steps:
-      # assemble-flock expects Nest's tools/ at the workspace root.
+      # assemble-fork expects Nest's tools/ and nest_patches/ at the workspace root.
       - name: Check out Nest assembly tooling
         uses: actions/checkout@v6
         with:
@@ -61,9 +61,18 @@ jobs:
           ref: main
           persist-credentials: false
 
-      - name: Assemble the proposed patch collection
-        uses: ./.github/actions/assemble-flock
+      - name: Set up Dart for Nest tooling
+        uses: dart-lang/setup-dart@v1
         with:
+          sdk: stable
+
+      - name: Assemble the proposed patch collection
+        uses: ./.github/actions/assemble-fork
+        with:
+          fork_path: flock
+          patches_path: patches
+          git_user_name: join-the-flock
+          git_user_email: join-the-flock@users.noreply.github.com
           flutter_ref: ${{ env.FLUTTER_REF }}
           patches_repo: ${{ github.repository }}
           patches_ref: ${{ github.sha }}
@@ -74,7 +83,6 @@ jobs:
         shell: bash
         run: |
           test "$(git -C patches rev-parse HEAD)" = "$GITHUB_SHA"
-          cmp "patches/$PATCH_MANIFEST" patches/.patches
           cd flock
           git diff --exit-code HEAD --
           test -z "$(git status --porcelain)"
