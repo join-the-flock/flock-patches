@@ -4,3 +4,4 @@ support_upgrading_flock.patch
 fix_ios_builds.patch
 create-patch-pr.patch
 report_flock_version_with_flutter_version_2026-09-08.patch
+replace_flutter_readme_with_flock_readme.patch
