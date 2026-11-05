@@ -1,0 +1,18 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Matt Carroll <matthew-carroll@users.noreply.github.com>
+Date: Wed, 4 Nov 2026 22:35:41 -0500
+Subject: Replace Flutter README with Flock README
+
+
+diff --git a/README.md b/README.md
+replace file mode 100644
+index 0000000000000000000000000000000000000000..a9397afcaad02ca530fbdcecacfcf1ab62fa7496
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1,6 @@
++<img width="1152" height="402" src="https://github.com/user-attachments/assets/2a2f52cb-b300-42e2-8418-eb13b34d0731" />
++
++# Flock
++Flutter, by the community, for the community.
++
++Learn more at https://getflocked.dev.
