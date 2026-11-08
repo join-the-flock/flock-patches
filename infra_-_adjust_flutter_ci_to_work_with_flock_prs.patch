@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Matt Carroll <matthew-carroll@users.noreply.github.com>
+Date: Sat, 7 Nov 2026 21:10:37 -0500
+Subject: [Infra] - Adjust Flutter CI to work with Flock PRs
+
+
+diff --git a/.github/actions/composite-flutter-setup/action.yml b/.github/actions/composite-flutter-setup/action.yml
+index 362473f8a7d62fd256b46dec56ea776a247268dd..b3c9f750a793355325795c6ffd4215b463aab64d 100644
+--- a/.github/actions/composite-flutter-setup/action.yml
++++ b/.github/actions/composite-flutter-setup/action.yml
+@@ -43,7 +43,7 @@ runs:
+         with:
+           persist-credentials: false
+ 
+-      # If this is a branch / pr NOT on fluter/flutter, set the remote upstream
++      # If this is a branch / pr NOT on flutter/flutter, set the remote upstream
+       # so the flutter tool can figure out the version
+       - name: Set upstream (if not flutter/flutter)
+         shell: bash
+@@ -52,7 +52,9 @@ runs:
+           if ! git remote get-url upstream >/dev/null 2>&1; then
+             git remote add upstream https://github.com/flutter/flutter.git
+           fi
+-          git fetch --all --tags
++          # Preserve the fork's release tags; upstream tags may use the same
++          # names but point to different commits.
++          git fetch --no-tags upstream
+ 
+       # If running locally; install the JDK - Github runners have everything on them
+       - name: Set up our JDK environment
